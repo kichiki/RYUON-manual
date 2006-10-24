@@ -1,10 +1,10 @@
-% MANUAL : stokesian dynamics
+% RYUON MANUAL
 % Copyright (C) 2006 Kengo Ichiki <kichiki@users.sourceforge.net>
-% $Id: manual.tex,v 1.1 2006/10/21 16:30:14 kichiki Exp $
+% $Id: manual.tex,v 1.2 2006/10/24 20:11:51 kichiki Exp $
 
 \documentclass{book}
 
-%\usepackage[dvips]{graphicx}
+\usepackage[dvips]{graphicx}
 \usepackage{amsmath}
 \usepackage{bm}
 \usepackage{times}
@@ -186,46 +186,42 @@ where ``?'' is either
 \subsection{Solvers}
 Each solver has the name in the form of
 \begin{equation}
-  {\tt void\quad solve\_\langle type\rangle\_\langle lub\rangle\_ewald\_\langle d\rangle\langle ver\rangle\_\langle mat\rangle\quad(sys, givens, unknowns);}
+  {\tt void\quad solve\_\langle type\rangle\_\langle lub\rangle\_ewald\_\langle d\rangle\langle ver\rangle\_\langle mat\rangle(sys,\ givens,\ unknowns);}
 \end{equation}
 
 \paragraph{Type of Problem ({\tt type})}
 \begin{itemize}
-\item Resistance Problems ({\tt res}):\\
+\item ({\tt res}): Resistance Problems\\
   $({\tt u, o, e}) \mapsto ({\tt f, t, s})$
-\item Mobility Problems ({\tt mob}):\\
+\item ({\tt mob}): Mobility Problems\\
   $({\tt f, t, e}) \mapsto ({\tt u, o, s})$
-\item Mobility Problems with Fixed Particles ({\tt mix}):\\
+\item ({\tt mix}): Mobility Problems with Fixed Particles\\
   $({\tt f, t, e, uf, of, ef}) \mapsto ({\tt u, o, s, ff, tf, sf})$
 \end{itemize}
 
 \paragraph{Truncation Version ({\tt ver})}
 \begin{itemize}
-\item F version ({\tt f})
-\item FT version ({\tt ft})
-\item FTS version ({\tt fts})
+\item ({\tt f}): F version
+\item ({\tt ft}): FT version
+\item ({\tt fts}): FTS version
 \end{itemize}
 
 \paragraph{Lubrication ({\tt lub})}
 \begin{itemize}
-\item ({\tt lub}):\\
-  with lubrication
-\item ():\\
-  without lubrication
+\item ({\tt lub}): with lubrication
+\item (): without lubrication
 \end{itemize}
 
 \paragraph{Matrix/$\bm{A}\cdot\bm{x}$ ({\tt mat})}
 \begin{itemize}
-\item ({\tt matrix}):\\
-  by matrix procedure
-\item ():\\
-  by $\bm{A}\cdot\bm{x}$ procedure
+\item ({\tt matrix}): by matrix procedure
+\item (): by $\bm{A}\cdot\bm{x}$ procedure
 \end{itemize}
 
 \paragraph{3D/monolayer ({\tt d})}
 \begin{itemize}
-\item 3D version ({\tt 3}):
-\item monolayer version ({\tt 2}):
+\item ({\tt 3}): 3D version
+\item ({\tt 2}): monolayer version
 \end{itemize}
 
 
@@ -927,7 +923,371 @@ Currently {\tt libstokes} can be used from the following programming languages:
 \item Octave
 \end{itemize}
 
+\section{{\tt xi3}:
+  Tuning program for ewald summation parameter}
+{\tt xi3} in {\bf RYUON-stokes} package
+is a tuning program for ewald summation parameter $\xi$.
 
+For simplicity, here we show the equation for F version.
+\begin{eqnarray}
+  6\pi\mu a
+  \bm{U}^\alpha
+  &=&
+  \bm{F}^\alpha
+  +
+  \sum_{\gamma}
+  {\sum_{\beta}}'
+  \bm{M}(\bm{r}_{\beta\alpha} + \bm{r}_\gamma)
+  \cdot\bm{F}^\beta
+  \\
+  &=&
+  \bm{F}^\alpha
+  \\
+  &&
+  +
+  \sum_{\gamma}
+  {\sum_{\beta\neq\alpha}}'
+  \bm{M}^{\rm real}(\bm{r}_{\beta\alpha} + \bm{r}_\gamma)
+  \cdot\bm{F}^\beta
+  \\
+  &&
+  +
+  \frac{1}{V}
+  \sum_{\lambda}
+  \sum_{\beta = 1}^{N}
+  \cos(\bm{k}_\lambda\cdot\bm{r}_{\beta\alpha})\ 
+  \tilde{\bm{M}}^{\rm recip}(\bm{k}_\lambda)
+  \cdot\bm{F}^\beta
+  \\
+  &&
+  -
+  \bm{M}^{\rm recip}(\bm{r} = \bm{0})
+  \cdot\bm{F}^\alpha
+  ,
+\end{eqnarray}
+where $\gamma$ is a index of lattice vector
+$\bm{r}_\gamma = (n_x l_x, n_y l_y, n_z l_z)^\dagger$
+for arbitrary integers $(n_x, n_y, n_z)$,
+$\bm{r}_{\beta\alpha} = \bm{x}^\alpha - \bm{x}^\beta$.
+The prime on the summation of particle $\beta$ in real-space lattice sum
+means that the self part ($\beta = \alpha$) is excluded
+for the primary cell $\bm{r}_{\gamma_0} = \bm{0}$.
+The mobility matrix $\bm{M}(\bm{r})$ is so called
+Rotne-Prager-Yamakawa tensor given by
+\begin{eqnarray}
+  \bm{M}(\bm{r})
+  &=&
+  \frac{3a}{4}
+  \left(
+    1
+    +
+    \frac{a^2\nabla^2}{6}
+  \right)^2
+  \bm{J}(\bm{r})
+  \\
+  &=&
+  \frac{3}{4}
+  \left[
+  \left(
+    \frac{a}{r}
+    +
+    \frac{a^3}{3r^3}
+  \right)
+  \bm{I}
+  +
+  \left(
+    \frac{a}{r}
+    -
+    \frac{a^3}{r^3}
+  \right)
+  \frac{\bm{rr}}{r^2}
+  \right]
+  \\
+  &=&
+  \left(
+    \frac{3a}{4}
+    +
+    \frac{a^3}{4}
+    \nabla^2
+  \right)
+  \left(
+    \bm{I}
+    \nabla^2
+    -
+    \bm{\nabla\nabla}
+  \right)
+  r
+  .
+\end{eqnarray}
+Because it is long-range interaction proportional to $1/r$,
+we need to take huge number of periodic images.
+The trick of Ewald summation technique is that
+using the identity
+\begin{equation}
+  {\rm erfc}(x) + {\rm erf}(x) \equiv 1,
+\end{equation}
+we split $\bm{M}(\bm{r})$ into two parts,
+$\bm{M}^{\rm real}$ and $\bm{M}^{\rm recip}$ as
+\begin{eqnarray}
+  \bm{M}^{\rm real}
+  &=&
+  \left(
+    \frac{3a}{4}
+    +
+    \frac{a^3}{4}
+    \nabla^2
+  \right)
+  \left(
+    \bm{I}
+    \nabla^2
+    -
+    \bm{\nabla\nabla}
+  \right)
+  r\ 
+  {\rm erfc} (\xi r),
+  \label{eq:xi3-M-real}
+  \\
+  \bm{M}^{\rm recip}
+  &=&
+  \left(
+    \frac{3a}{4}
+    +
+    \frac{a^3}{4}
+    \nabla^2
+  \right)
+  \left(
+    \bm{I}
+    \nabla^2
+    -
+    \bm{\nabla\nabla}
+  \right)
+  r\ 
+  {\rm erf} (\xi r)
+  .
+  \label{eq:xi3-M-recip}
+\end{eqnarray}
+Because the error function ${\rm erfc}(x)$ decays exponentially,
+we can truncate the lattice summation of $\gamma$ for $\bm{M}^{\rm real}$
+at some point.
+Similarly, in reciprocal space, $\tilde{\bm{M}}^{\rm recip}(\bm{k})$
+decays exponentially in $k$ so that we can truncate the lattice sum
+of $\lambda$ at some point.
+
+Mathematically, the parameter $\xi$ introduced in
+Eqs. (\ref{eq:xi3-M-real}) and (\ref{eq:xi3-M-recip})
+is arbitrary. It specify how fast $\bm{M}^{\rm real}(\bm{r})$ decays
+and how slow $\tilde{\bm{M}}^{\rm recip}(\bm{k})$ decays.
+Practically, on the other hand, we can choose the optimal value of $\xi$
+so that the calculation time is minimal.
+
+
+\subsection{Sample Run}
+Here is a sample procedure showing how to use {\tt xi3} in practice.
+We are looking at the problem of 8 particles at SC lattice sites
+in (5, 5, 5) periodic box.
+A sample configuration file ({\tt xi3.scm}) is given in the package:
+{\small
+\begin{verbatim}
+; sample set file for xi3
+; SC lattice config of 8 particles in (5,5,5) box
+; $Id: manual.tex,v 1.2 2006/10/24 20:11:51 kichiki Exp $
+(define version    "F")     ; version. "F", "FT", or "FTS"
+(define flag-mat   #t)      ; #t => matrix scheme, #f => atimes scheme
+(define flag-notbl #f)      ; #t => no-table,      #f => with table
+
+(define np         8)       ; number of particles
+(define ewald-eps  1.0e-12) ; cut-off limit for Ewald summation
+
+; lattice vector
+(define lattice '(5.0  5.0  5.0))
+
+; configuration of particles
+(define x #(
+0.0  0.0  0.0
+2.5  0.0  0.0
+0.0  2.5  0.0
+0.0  0.0  2.5
+0.0  2.5  2.5
+2.5  0.0  2.5
+2.5  2.5  0.0
+2.5  2.5  2.5
+))
+
+; list of time ratio Tr/Tk for Ewald summation (optional)
+;(define ewald-trs
+;  '(0.1
+;    1.0
+;    10.0
+;    100.0
+;    ))
+\end{verbatim}
+}
+Here is a part of the result:
+{\small
+\begin{verbatim}
+# F version table matrix
+0.110000 0.245379 22.087 21.575 0.512 1.33163581314065055e-01 2197 125 1713 80
+0.121000 0.249308 21.106 20.592 0.514 1.33163581314059309e-01 2197 125 1713 80
+0.133100 0.253300 20.812 20.224 0.588 1.33163581314069690e-01 2197 125 1689 92
+...
+\end{verbatim}
+}
+Each line of the output consists of 10 columns in this case,
+that is, for F version with table.
+First 5 columns are the same for any cases;
+First and second columns are $R_T$ and $\xi$ (see below in details).
+The next 3 are CPU times in milli-seconds
+for real space, reciprocal space, and the total
+calculations, respectively.
+The next column is, for F version, the {\it averaged} velocity
+obtained by the calculation (see below in details).
+For FT and FTS versions, there are 2 and 3 numbers there.
+Next two integers show the lattice points within the range
+for real and reciprocal summations. Note that the numbers 
+are those in the cubic regions (not spherical). For non-table version
+we are taking into account the lattice points within the cubic region
+specified by the numbers of lattice points in $x$, $y$, and $z$ directions.
+For table version, on the other hand, we apply more complicated 
+(and empirical) criteria for the truncation of lattice sum and
+roughly speaking this reduce the region from cubic to spherical.
+In the case, the final two integers, which are the actual numbers 
+of points for real and reciprocal summations we took, are added.
+
+
+
+In {\tt xi3} program as well as {\tt libstokes}
+library, another parameter $R_T$ instead of $\xi$ is used.
+$R_T$ is a rough estimation of CPU time ratio between real and reciprocal
+summations and related to $\xi$ as
+\begin{equation}
+  R_T
+  =
+  \frac{
+    \left(
+      l_x l_y l_z
+      \xi^3
+    \right)^2
+  }{\pi^3}   
+  =
+  \frac{T_{real}}{T_{recip}}
+  ,
+\end{equation}
+where
+\begin{equation}
+  T_{real}
+  \propto
+  l_x l_y l_z
+  \xi^3
+  ,
+  \quad
+  T_{recip}
+  \propto
+  k_x k_y k_z
+  =
+  \frac{\pi^3}{l_x l_y l_z \xi^3}
+  .
+\end{equation}
+\begin{figure}
+  \centering
+  \includegraphics[width=7cm]{figures/FIG-xi3-xi}
+  \caption{
+    $\xi$ versus $R_T$.
+  }
+  \label{fig:xi3-xi}
+\end{figure}
+Figure \ref{fig:xi3-xi} shows $\xi$ vs. $R_T$.
+(Those are at the first and second columns in the result file.)
+Note that this is implemented in the routine
+{\tt xi\_by\_tratio ()}.
+
+
+
+Changing $R_T$, the number of lattice points in real and reciprocal
+summations are changing: The former is decreasing
+and the latter increasing as $R_T$ is increasing.
+Because the calculation result is independent of $\xi$ and therefore $R_T$,
+we can use this parameter to tune the calculation of the Ewald summation.
+That is, we can take a specific value of $\xi$ which minimize
+the calculation cost.
+This is the whole purpose of {\tt xi3} program.
+Figure \ref{fig:xi3-CPU} shows CPU times for real and reciprocal spaces
+and the total.
+\begin{figure}
+  \centering
+  \includegraphics[width=7cm]{figures/FIG-xi3-CPU}
+  \caption{
+  }
+  \label{fig:xi3-CPU}
+\end{figure}
+As we see, there is an obvious minimum point on the total CPU time.
+In this example (for SC lattice of $N=8$ particles in
+$(5, 5, 5)$ periodic box),
+the minimum is around $R_T\approx 4$.
+
+
+
+Previously, I wrote that
+the calculation result is independent of $\xi$ and therefore $R_T$.
+This is the mathematical conclusion and therefore this is a good 
+check for the code:
+\begin{quote}
+  {\bf The results should be the same for various $\xi$ (and therefore $R_T$).}
+\end{quote}
+Actually, we truncate the lattice summations at the point where
+the term is small enough. The criteria is given by another parameter
+{\tt ewald\_eps}.
+In this example, we take ${\tt ewald\_eps} = 10^{-12}$.
+(Small enough, isn't it?)
+In the code of {\tt xi3}, we calculate not physical problems
+but the plain $\mathbf{A}\cdot\mathbf{x}$ calculation
+for the mobility matrix $\mathbf{A}$ and
+a vector $\mathbf{x} = (1,1,\cdots,1)^\dagger$.
+The 6th column of the result {\tt xi3} generates
+is the average of $\mathbf{A}\cdot\mathbf{x}$, that is,
+a kind of averaged velocity. (``a kind of'' means
+that the average is taken element-wise rather than particle-wise.)
+\begin{figure}
+  \centering
+  \includegraphics[width=7cm]{figures/FIG-xi3-err}
+  \caption{
+  }
+  \label{fig:xi3-err}
+\end{figure}
+Figure \ref{fig:xi3-err} shows the calculated results versus $R_T$.
+The values in y-axis is the absolute value of the difference
+to a point at $R_T \approx 10$, which I just pick to see the 
+fluctuations, in other words, the empirical error. (You should 
+note that if everything is working good, this approach works,
+but otherwise it is not.)
+It looks OK.
+Actually, my cut-off criteria with {\tt ewald\_eps} might be 
+a little hard (because the error is less than 1.0e-13, one order 
+lower than expected). But it does not harm and I leave it.
+
+
+\subsection{Help}
+{\small
+\begin{verbatim}
+$ ./xi3 --help
+USAGE
+./xi3 init-file
+        where init-file is a SCM file (default: xi3.scm)
+
+Parameters in the init-file:
+        version    : "F", "FT", or "FTS"
+        flag-mat   : #t for matrix-scheme
+                   : #f for atimes-scheme
+        flag-notbl : calculation scheme for the ewald-summation
+                   : #t for no-table
+                   : #f for with table
+        lattice    : dimensions of the periodic box (list or vector of length 3)
+        ewald-eps  : tolerance value for ewald-summation cut-off
+        np         : number of particles
+        x          : particle configuration (list or vector with length 3*np)
+        ewald-trs  : (optional) list of ewald_tr parameters
+                   : (list or vector with any length)
+\end{verbatim}
+}
 
 
 \chapter{{\tt libexp}:
