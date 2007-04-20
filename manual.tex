@@ -1,6 +1,6 @@
 % RYUON MANUAL
-% Copyright (C) 2006 Kengo Ichiki <kichiki@users.sourceforge.net>
-% $Id: manual.tex,v 1.2 2006/10/24 20:11:51 kichiki Exp $
+% Copyright (C) 2006-2007 Kengo Ichiki <kichiki@users.sourceforge.net>
+% $Id: manual.tex,v 1.3 2007/04/20 02:50:58 kichiki Exp $
 
 \documentclass{book}
 
@@ -23,7 +23,7 @@
 \tableofcontents
 
 \chapter{Introduction}
-RYUON is a particle simulation suite,
+{\bf RYUON} is a particle simulation suite,
 currently covering Stokesian dynamics method
 and hopefully more general many-body problems in the future,
 released under the GNU General Public License (see Chapter \ref{chp:GPL}).
@@ -35,24 +35,24 @@ RYU of RYU-ON has meanings of ``grain'' and ``flow''
 in Japanese and it well fits my interest, the GAP between the two.
 
 
-I am planning to release the following codes and data:
+Currently, {\bf RYUON} contains the following codes and data:
 \begin{itemize}
-\item Simulators
+\item Simulators: {\tt stokes} (Chapter \ref{chp:stokes})
   \begin{itemize}
-  \item {\tt stokes} (Chapter \ref{chp:stokes}):
-    Stokesian dynamics: massless particles in a viscous fluid
-  \item 
-    Fluidized Beds Simulator: heavy particles in a viscous fluid
-    \cite{ichiki1995,ichiki1998}
+  \item Stokesian dynamics for massless particles in a viscous fluid
+  \item Fluidized-Beds Simulator
+    \cite{IchikiHayakawa1995,IchikiHayakawa1998}
+    for heavy particles in a viscous fluid
+  \item Chain Simulator for bead-spring model in a viscous fluid
   \end{itemize}
 \item Libraries
   \begin{itemize}
   \item {\tt libstokes} (Chapter \ref{chp:libstokes}):
     library for Stokesian dynamics
-    \cite{brady1988a,durlofsky1987a,brady1988b,ichiki2002}
+    \cite{BradyBossis1988,DurlofskyEtal1987,BradyEtal1988,Ichiki2002}
   \item {\tt libiter} (Chapter \ref{chp:libiter}):
     library of iterative solvers for the linear set of equations
-    \cite{ichiki2001}
+    \cite{IchikiBrady2001}
   \item {\tt libexp} (Chapter \ref{chp:libexp}):
     Solver for General Many-Body Problems:
     including electrostatics, gravitational systems,
@@ -68,7 +68,7 @@ I am planning to release the following codes and data:
 \item Utilities: Analysis and Visualization
   \begin{itemize}
   \item Molecular dynamics:
-    utility for existing OpenSource Projects such as GROMACS and TINKER
+    utility for existing Open Source Projects such as GROMACS and TINKER
     \cite{IchikiConsta2006}
   \end{itemize}
 \end{itemize}
@@ -76,855 +76,347 @@ I am planning to release the following codes and data:
 
 
 
-\chapter{{\tt libstokes}:
-  Library for Stokesian Dynamics}
-\label{chp:libstokes}
-\section{API}
-
-\subsection{System Parameters}
-System parameters such as the number of particles
-are passed to the solver routines by {\tt struct stokes}.
-
-\paragraph{Constructor/Destructor}
-\begin{itemize}
-\item {\tt stokes\_init ();}
-\item {\tt stokes\_free (sys);}
-\end{itemize}
-
-
-\paragraph{Initialize Functions}
-\begin{verbatim}
-/* set np and nm and allocate the memory for pos[np*3]
- */
-void
-stokes_set_np (struct stokes * sys,
-	       int np, int nm);
-
-void
-stokes_set_l (struct stokes * sys,
-	      double lx, double ly, double lz);
-
-void
-stokes_set_xi (struct stokes * sys,
-	       double xi, double cutlim);
-
-double
-xi_by_tratio (struct stokes * sys,
-	      double tratio);
-
-/* set iter param
- * INPUT
- *   solver : string indicating the solver
- *            sta, sta2, gpb, otmk, or gmres (default)
- *   eps and log10_eps
- *   max (and restart)
- *   debug = 0 : no debug info
- *         = 1 : iteration numbs and residue
- *   out   : FILE * to output debug info.
- */
-void
-stokes_set_iter (struct stokes * sys,
-		 const char * solver,
-		 int max,
-		 int restart,
-		 double eps,
-		 int debug,
-		 FILE * out);
-
-/* set pos safely by another array
- * INPUT
- *  pos[np*3] :
- */
-void
-stokes_set_pos (struct stokes * sys,
-		const double * pos);
-\end{verbatim}
-
-\subsection{NetCDF Interface}
-In the library, most data is treated by the pointer
-{\tt double *}. Here NetCDF interface for {\tt libstokes}
-is prepared for file I/O.
-
-\paragraph{Constructor/Destructor}
-The following constructor returns NetCDF id by the returned value.
-\begin{itemize}
-\item {\tt stokes\_nc\_mob\_f\_init (filename, np);}\\
-  activated entries are {\tt f0, x, u}.
-\item {\tt stokes\_nc\_mob\_ft\_init (filename, np);}\\
-  activated entries are {\tt f0, t0, x, u, o}.
-\item {\tt stokes\_nc\_mob\_fts\_init (filename, np);}\\
-  activated entries are {\tt f0, t0, e0, x, u, o, s}.
-\item {\tt stokes\_nc\_mob\_fix\_f\_init (filename, nm, nf);}\\
-  activated entries are {\tt xf0, f0, uf0, x, u, ff}.
-\item {\tt stokes\_nc\_mob\_fix\_ft\_init (filename, np);}\\
-  activated entries are {\tt xf0, f0, t0, uf0, of0, x, u, o, ff, tf}.
-\item {\tt stokes\_nc\_mob\_fix\_fts\_init (filename, np);}\\
-  activated entries are {\tt xf0, f0, t0, e0, uf0, of0, ef0,
-  x, u, o, s, ff, tf, sf}.
-\item {\tt stokes\_nc\_free (nc);}\\
-  destructor of NetCDF data structure.
-\end{itemize}
-
-
-\paragraph{Writing Routines}
-To set the values to NetCDF data structure,
-use the following routines:
-\begin{itemize}
-\item {\tt stokes\_nc\_set\_?0 (nc, ?0);}\\
-    define quantity ``?'' at $t=t_0$,
-\item {\tt stokes\_nc\_set\_time (nc, step, time);}\\
-    define time $t$ for the step ``{\tt step}'',
-\item {\tt stokes\_nc\_set\_? (nc, step, time, ?);}\\
-    define quantity ``?'' at $t$ ({\tt step}),
-\end{itemize}
-where ``?'' is either
-{\tt x, u, o, e, f, t, s} (for mobile particles), or
-{\tt xf, uf, of, ef, ff, tf, sf} (for fixed particles).
-
-
-
-\subsection{Solvers}
-Each solver has the name in the form of
-\begin{equation}
-  {\tt void\quad solve\_\langle type\rangle\_\langle lub\rangle\_ewald\_\langle d\rangle\langle ver\rangle\_\langle mat\rangle(sys,\ givens,\ unknowns);}
-\end{equation}
-
-\paragraph{Type of Problem ({\tt type})}
-\begin{itemize}
-\item ({\tt res}): Resistance Problems\\
-  $({\tt u, o, e}) \mapsto ({\tt f, t, s})$
-\item ({\tt mob}): Mobility Problems\\
-  $({\tt f, t, e}) \mapsto ({\tt u, o, s})$
-\item ({\tt mix}): Mobility Problems with Fixed Particles\\
-  $({\tt f, t, e, uf, of, ef}) \mapsto ({\tt u, o, s, ff, tf, sf})$
-\end{itemize}
-
-\paragraph{Truncation Version ({\tt ver})}
-\begin{itemize}
-\item ({\tt f}): F version
-\item ({\tt ft}): FT version
-\item ({\tt fts}): FTS version
-\end{itemize}
-
-\paragraph{Lubrication ({\tt lub})}
-\begin{itemize}
-\item ({\tt lub}): with lubrication
-\item (): without lubrication
-\end{itemize}
-
-\paragraph{Matrix/$\bm{A}\cdot\bm{x}$ ({\tt mat})}
-\begin{itemize}
-\item ({\tt matrix}): by matrix procedure
-\item (): by $\bm{A}\cdot\bm{x}$ procedure
-\end{itemize}
-
-\paragraph{3D/monolayer ({\tt d})}
-\begin{itemize}
-\item ({\tt 3}): 3D version
-\item ({\tt 2}): monolayer version
-\end{itemize}
-
-
-\section{Stokes Flows}
-In the following, physical background is explained.
-
-Fluid is described by Navier-Stokes equation
-\begin{equation}
-  \frac{\partial}{\partial t}
-  \Bigl[
-    \rho
-    \bm{u}
-    +
-    \left(
-      \bm{u}
-      \cdot
-      \bm{\nabla}
-    \right)
-    \bm{u}
-  \Bigr]
-  =
-  -
-  \bm{\nabla}
-  p
-  +
-  \mu
-  \Delta
-  \bm{u}
-  ,
-  \label{eq:navier-stokes}
-\end{equation}
-where $\bm{u}$ is the fluid velocity,
-$p$ is the pressure, $\rho$ is the density,
-and $\mu$ is the viscosity.
-The differential operator
-\begin{equation}
-  \bm{\nabla}
-  =
-  \left[
-    \begin{array}{c}
-      \partial/\partial x\\
-      \partial/\partial y\\
-      \partial/\partial z
-    \end{array}
-  \right]
-  ,
-\end{equation}
-and $\Delta$ is the Laplacian
-\begin{equation}
-  \Delta
-  =
-  \bm{\nabla}
-  \cdot
-  \bm{\nabla}
-  =
-  \partial^2/\partial x^2
-  +
-  \partial^2/\partial y^2
-  +
-  \partial^2/\partial z^2
-  .
-\end{equation}
-This is the fluid equation of motion, in other words,
-the momentum balance equation and the counterpart of
-Newton's equation of motion $\bm{F} = m\bm{a}$.
-Actually, writing the viscous fluid stress by
-\begin{equation}
-  \bm{\sigma}
-  =
-  p
-  \bm{I}
-  +
-  \bm{\nabla}\bm{u}
-  +
-  \Bigl(
-  \bm{\nabla}\bm{u}
-  \Bigr)^\dagger
-  ,
-\end{equation}
-Navier-Stokes equation (\ref{eq:navier-stokes}) can be written by
-the similar equation of motion
-\begin{equation}
-  \frac{D}{D t}
-  \Bigl[
-    \rho
-    \bm{u}
-  \Bigr]
-  =
-  -
-  \bm{\nabla}
-  \cdot
-  \bm{\sigma}
-  .
-\end{equation}
-
-
-The Stokes flows, which is the target of {\tt libstokes},
-is where the viscous term in Eq. (\ref{eq:navier-stokes})
-is dominating to the inertial term.
-The ratio of the magnitude of these two terms are characterized
-by a dimensionless number called ``Reynolds number'' $Re$
-\begin{equation}
-  Re
-  :=
-  \frac{LU}{\mu}
-  ,
-\end{equation}
-where $L$ and $U$ are characteristic length and velocity.
-The Stokes flows are the flow of small Reynolds number.
-
-In the limit $Re\rightarrow 0$,
-the governing equation of fluids becomes
-\begin{equation}
-  \bm{0}
-  =
-  -
-  \bm{\nabla}
-  p
-  +
-  \mu
-  \Delta
-  \bm{u}
-  ,
-  \label{eq:stokes}
-\end{equation}
-which is a linear partial differential equation.
-In the following, we are studying fluid motions
-governed by Eq. (\ref{eq:stokes})
-for incompressible fluid
-\begin{equation}
-  \bm{\nabla}
-  \cdot
-  \bm{u}
-  =
-  0
-  .
-\end{equation}
-
-
-\section{Many Body Problem}
-In a viscous fluid, objects are dragged by the surrounding fluid.
-(Imagine when you are in water pool or the sea.)
-
-
-\begin{equation}
-  \bm{u}
-  (\bm{x})
-  =
-  -
-  \frac{1}{8\pi\mu}
-  \int_S
-  {\rm d}S(\bm{y})\ 
-  \bm{J}(\bm{x}-\bm{y})
-  \cdot
-  \bm{f}(\bm{y})
-  .
-  \label{eq:stokes-integral}
-\end{equation}
-
-Boundary value problem (Dirichlet problem).
-
-Expanding the integrand in the right-hand side
-of Eq. (\ref{eq:stokes-integral},
-we have
-\begin{equation}
-  \bm{u}
-  (\bm{x})
-  =
-  -
-  \frac{1}{n!}
-  \sum_{n=0}^{\infty}
-  \frac{1}{8\pi\mu}
-  \Bigl[
-    (-)^n
-    \bm{\nabla}^n
-    \bm{J}
-  \Bigr]
-  (\bm{x}-\bm{y}_0)
-  \odot^n
-  \int_S
-  {\rm d}S(\bm{y})\ 
-  \Bigl[
-    \bm{y}
-    -
-    \bm{y}_0
-  \Bigr]^n
-  \bm{f}(\bm{y})
-  ,
-\end{equation}
-where we assume that the surface $S$ consists of a single sphere
-and $\bm{y}_0$ is its center.
-
-Note that the surface integral in the right-hand side
-is a tensor of order $(n+1)$ and
-is called the force moment $\mathcal{F}^{(n)}$
-\begin{equation}
-  \mathcal{F}^{(n)}
-  (\bm{y}_0)
-  :=
-  -
-  \int_S
-  {\rm d}S(\bm{y})\ 
-  \Bigl[
-    \bm{y}
-    -
-    \bm{y}_0
-  \Bigr]^n
-  \bm{f}(\bm{y})
-  ,
-\end{equation}
-and
-\begin{eqnarray}
-  \mathcal{F}^{(0)}
-  (\bm{y}_0)
-  &=&
-  \bm{F}
-  ,\\
-  \mathcal{F}^{(1)}
-  (\bm{y}_0)
-  &=&
-  \bm{\epsilon}
-  \cdot
-  \bm{T}
-  +
-  \bm{S}
-  .
-\end{eqnarray}
-Taking the terms up to $n=1$ and substituting the above,
-we have an expression\cite{durlofsky1987a}
-\begin{equation}
-  \bm{u}
-  (\bm{x})
-  =
-  \Bigl(
-    1
-    +
-    \frac{a^2\nabla^2}{6}
-  \Bigr)
-  \bm{J}
-  (\bm{x}-\bm{y}_0)
-  \cdot
-  \bm{F}
-  +
-  \bm{R}
-  (\bm{x}-\bm{y}_0)
-  \cdot
-  \bm{T}
-  +
-  \Bigl(
-    1
-    +
-    \frac{a^2\nabla^2}{10}
-  \Bigr)
-  \bm{K}
-  (\bm{x}-\bm{y}_0)
-  \odot^2
-  \bm{S}
-  ,
-\end{equation}
-where $\bm{R}$ and $\bm{K}$ are given by
-\begin{eqnarray}
-  \bm{R}
-  &=&
-  ,\\
-  \bm{K}
-  &=&
-  .
-\end{eqnarray}
-
-
-Up to this order of expansion,
-if we introduce the corresponding velocity moments, that is,
-the translational and angular velocity $\bm{U}$ and $\bm{\Omega}$
-and the rate of strain tensor $\bm{E}$,
-we have the closed linear set of equations
-written in the matrix form as
-\begin{equation}
-  \left[
-    \begin{array}{c}
-      \bm{U}\\
-      \bm{\Omega}\\
-      \bm{E}
-    \end{array}
-  \right]
-  =
-  \left[
-    \begin{array}{ccc}
-      \bm{a} & \bm{b} & \bm{g}\\
-      \tilde{\bm{b}} & \bm{c} & \bm{h}\\
-      \tilde{\bm{g}} & \tilde{h} & \bm{m}
-    \end{array}
-  \right]
-  \cdot
-  \left[
-    \begin{array}{c}
-      \bm{F}\\
-      \bm{T}\\
-      \bm{S}
-    \end{array}
-  \right]
-  .
-  \label{eq:mob-fts}
-\end{equation}
-
-From the mathematical property of Eq. (\ref{eq:stokes-integral}),
-the whole matrix relating two vectors
-$(\bm{U}, \bm{\Omega}, \bm{E})^\dagger$ and
-$(\bm{F}, \bm{T}, \bm{S})^\dagger$
-should be symmetric.
-That is,
-\begin{eqnarray}
-  a_{ij} &=& a_{ji},\\
-  \tilde{b}_{ij} &=& b_{ji},\\
-  c_{ij} &=& c_{ji}.
-\end{eqnarray}
-However, we should note that
-once we reduce the elements of vectors,
-the symmetry does not hold.
-From the definition, the second order tensors $\bm{E}$ and $\bm{S}$
-are symmetric and traceless, so that only 5 components
-out of $3\times 3$ are independent.
-Without the reduction to the independent components,
-the linear set of equation becomes ill-defined
-and the inverse matrix (with the full components) are not unique.
-
-\paragraph{Question:}
-Is there any way of reduction
-preserving the symmetric nature?
-
-
-\section{FTS formulation}
-Equation (\ref{eq:mob-fts}) is the famous FTS formulation
-derived in the paper of Stokesian dynamics method\cite{durlofsky1987a}.
-
-As shown above, it is natural form in the mathematical sense
-that $\bm{U}$, $\bm{\Omega}$ and $\bm{E}$ are in the left-hand side
-and $\bm{F}$, $\bm{T}$ and $\bm{S}$ are in the right-hand side.
-However, from physical point of view, especially for the rigid particles,
-it is not always the case.
-For instance, in the resistance problem,
-$\bm{U}$ and $\bm{\Omega}$ are given and
-$\bm{F}$ and $\bm{T}$ are unknown,
-while in the mobility problem,
-$\bm{F}$ and $\bm{T}$ are given and
-$\bm{U}$ and $\bm{\Omega}$ are unknown.
-But from the rigidity of the particles,
-$\bm{E}$ is always a given parameter and
-$\bm{S}$ is known.
-That is, for the mobility problem, it would be the natural form that
-\begin{equation}
-  \left[
-    \begin{array}{c}
-      \bm{U}\\
-      \bm{\Omega}\\
-      \bm{S}
-    \end{array}
-  \right]
-  =
-  \bm{M}'
-  \cdot
-  \left[
-    \begin{array}{c}
-      \bm{F}\\
-      \bm{T}\\
-      \bm{E}
-    \end{array}
-  \right]
-  .
-\end{equation}
-Actually, Kim {\it et al}. take this form
-rather than Eq. (\ref{eq:mob-fts}).
-But, here, we stick to the FTS form of Eq. (\ref{eq:mob-fts})
-as in Jeffrey {\it et al}.
-Because the equation is linear,
-we can construct the FTE form from FTS as
-\begin{eqnarray}
-  {\bm{M}'}_{UF}
-  &=&
-  \bm{M}_{UF}
-  -
-  \bm{M}_{US}
-  \cdot
-  \Bigl(
-  \bm{M}_{ES}
-  \Bigr)^{-1}
-  \cdot
-  \bm{M}_{EF}
-  ,\\
-  {\bm{M}'}_{UE}
-  &=&
-  \bm{M}_{US}
-  \cdot
-  \Bigl(
-    \bm{M}_{ES}
-  \Bigr)^{-1}
-  ,\\
-  {\bm{M}'}_{SF}
-  &=&
-  -
-  \Bigl(
-    \bm{M}_{ES}
-  \Bigr)^{-1}
-  \cdot
-  \bm{M}_{EF}
-  ,\\
-  {\bm{M}'}_{SE}
-  &=&
-  \Bigl(
-    \bm{M}_{ES}
-  \Bigr)^{-1}
-  ,
-\end{eqnarray}
-for
-\begin{equation}
-  \left[
-    \begin{array}{c}
-      \bm{U}\\
-      \bm{S}
-    \end{array}
-  \right]
-  =
-  \left[
-    \begin{array}{cc}
-      {\bm{M}'}_{UF} & {\bm{M}'}_{UE}\\
-      {\bm{M}'}_{SF} & {\bm{M}'}_{SE}
-    \end{array}
-  \right]
-  \cdot
-  \left[
-    \begin{array}{c}
-      \bm{F}\\
-      \bm{E}
-    \end{array}
-  \right]
-  ,
-\end{equation}
-where
-\begin{equation}
-  \left[
-    \begin{array}{c}
-      \bm{U}\\
-      \bm{E}
-    \end{array}
-  \right]
-  =
-  \left[
-    \begin{array}{cc}
-      \bm{M}_{UF} & \bm{M}_{US}\\
-      \bm{M}_{EF} & \bm{M}_{ES}
-    \end{array}
-  \right]
-  \cdot
-  \left[
-    \begin{array}{c}
-      \bm{F}\\
-      \bm{S}
-    \end{array}
-  \right]
-  .
-\end{equation}
-Note that, for simplicity, we combine $\bm{\Omega}$ and $\bm{T}$ into
-$\bm{U}$ and $\bm{F}$ respectively.
-
-
-This procedure is exactly applied for the higher orders
-of expansions for rigid particles, because not only $\bm{E}$
-but the higher order velocity moments should be vanished
-(that is, these are always given parameters).
-
-
-\section{Fixed Particles -- Mixed Problem}
-When we are interested in particle dynamics,
-the mobility problem is the main target.
-However, in several situations, we may want to introduce
-fixed particles into the simulation representing some
-obstacles or vessel to support other mobile particles.
-\cite{ichiki1995}
-In those cases, it is not a simple mobility problem but
-the mixed problems, that is,
-the ``mobility and resistance'' problem.
-
-\begin{equation}
-  \left[
-    \begin{array}{c}
-      \bm{U}^{m}\\
-      \bm{E}^{m}\\
-      \bm{U}^{f}\\
-      \bm{E}^{f}
-    \end{array}
-  \right]
-  =
-  \left[
-    \begin{array}{cccc}
-      \bm{M}_{UF}^{mm} & \bm{M}_{US}^{mm} & \bm{M}_{UF}^{mf} & \bm{M}_{US}^{mf}\\
-      \bm{M}_{EF}^{mm} & \bm{M}_{ES}^{mm} & \bm{M}_{EF}^{mf} & \bm{M}_{ES}^{mf}\\
-      \bm{M}_{UF}^{fm} & \bm{M}_{US}^{fm} & \bm{M}_{UF}^{ff} & \bm{M}_{US}^{ff}\\
-      \bm{M}_{EF}^{fm} & \bm{M}_{ES}^{fm} & \bm{M}_{EF}^{ff} & \bm{M}_{ES}^{ff}\\
-    \end{array}
-  \right]
-  \cdot
-  \left[
-    \begin{array}{c}
-      \bm{F}^{m}\\
-      \bm{S}^{m}\\
-      \bm{F}^{f}\\
-      \bm{S}^{f}
-    \end{array}
-  \right]
-  .
-\end{equation}
-
-
-
-\begin{equation}
-  \bm{B}
-  \cdot
-  \left[
-    \begin{array}{c}
-      \bm{F}^{m}\\
-      \bm{E}^{m}\\
-      \bm{U}^{f}\\
-      \bm{E}^{f}
-    \end{array}
-  \right]
-  =
-  \bm{A}
-  \cdot
-  \left[
-    \begin{array}{c}
-      \bm{U}^{m}\\
-      \bm{S}^{m}\\
-      \bm{F}^{f}\\
-      \bm{S}^{f}
-    \end{array}
-  \right]
-  ,
-  \label{eq:atimes-gen}
-\end{equation}
-where given parameters are in the left-hand side
-and the unknowns are in the right-hand side.
-It is straightforward to obtain the matrices $\bm{A}$ and $\bm{B}$
-by $\bm{M}$'s.
-\begin{equation}
-  \left[
-    \begin{array}{cccc}
-      -\bm{M}_{UF}^{mm} & \bm{0} & \bm{0} & \bm{0}\\
-      -\bm{M}_{EF}^{mm} & \bm{I} & \bm{0} & \bm{0}\\
-      -\bm{M}_{UF}^{fm} & \bm{0} & \bm{I} & \bm{0}\\
-      -\bm{M}_{EF}^{fm} & \bm{0} & \bm{0} & \bm{I}\\
-    \end{array}
-  \right]
-  \cdot
-  \left[
-    \begin{array}{c}
-      \bm{F}^{m}\\
-      \bm{E}^{m}\\
-      \bm{U}^{f}\\
-      \bm{E}^{f}
-    \end{array}
-  \right]
-  =
-  \left[
-    \begin{array}{cccc}
-      -\bm{I} & \bm{M}_{US}^{mm} & \bm{M}_{UF}^{mf} & \bm{M}_{US}^{mf}\\
-      \bm{0}  & \bm{M}_{ES}^{mm} & \bm{M}_{EF}^{mf} & \bm{M}_{ES}^{mf}\\
-      \bm{0}  & \bm{M}_{US}^{fm} & \bm{M}_{UF}^{ff} & \bm{M}_{US}^{ff}\\
-      \bm{0}  & \bm{M}_{ES}^{fm} & \bm{M}_{EF}^{ff} & \bm{M}_{ES}^{ff}\\
-    \end{array}
-  \right]
-  \cdot
-  \left[
-    \begin{array}{c}
-      \bm{U}^{m}\\
-      \bm{S}^{m}\\
-      \bm{F}^{f}\\
-      \bm{S}^{f}
-    \end{array}
-  \right]
-  .
-\end{equation}
-Because the matrices are unknown variables,
-the generalized form of linear set of equations (\ref{eq:atimes-gen})
-can be solved by the standard iterative method
-by giving the procedure to calculate $\bm{A}\cdot\bm{x}$
-with $\bm{A}$ in (\ref{eq:atimes-gen})
-for a given vector $\bm{b} = \bm{B}\cdot\bm{b}'$
-appeared in the left-hand side of Eq. (\ref{eq:atimes-gen}).
-
-
-To reduce the debugging cost (and extra complexity of the code),
-the implementation of the scheme in the library {\tt libstokes}
-is in this way.\footnote{
-  Sometimes, tailor-made implementations for each case,
-  that is, resistance, mobility, and mobility/resistance
-  (with fixed particles) problems for F, FT, and FTS versions
-  (therefore, $3\times 3 = 9$ cases), were faster,
-  but it is not drastic at the same time.
-  When everything has done and there's nothing to do,
-  I'll come back to this point and will revise the codes.}
-
-
-
-
-\section{Lubrication Correction}
-One of the innovation done by Stokesian dynamics
-\cite{brady1988a,durlofsky1987a,brady1988b}
-is the model of lubrication into the system.
-
-\begin{eqnarray}
-  \bm{R}
-  \simeq
-  \left(
-    \bm{M}
-  \right)^{-1}
-  +
-  \bm{L}
-  .
-  \label{eq:res-lub}
-\end{eqnarray}
-
-In a straightforward implementation of this lubrication correction,
-even in F version, the mobility problem needs twice matrix-inversions.
-
-Here's some trick to prevent the extra matrix-inversion,
-which is usually the bottleneck of the calculation
-(especially for large systems).
-Substituting the resistance matrix (\ref{eq:res-lub})
-into the resistance equation and multiplying $\bm{M}$ from the left,
-we have the inverse-free matrix equation
-\begin{equation}
-  \Bigl(
-    \bm{I}
-    +
-    \bm{M}
-    \cdot
-    \bm{L}
-  \Bigr)
-  \cdot
-  \bm{U}
-  =
-  \bm{M}
-  \cdot
-  \bm{F}
-  ,
-\end{equation}
-where $\bm{U}$ and $\bm{F}$ contains all velocity and force moments
-for simplicity.
-Writing the equation in this form,
-we can always apply the generalized linear set of equation
-as in Eq. (\ref{eq:atimes-gen}) for any case.
-
-
-\section{Ewald Summation}
-Because of the long-range nature of the Stokeslet $\bm{J}$,
-we cannot take a simple cut-off model under the periodic
-boundary condition. As in the electrostatic interactions
-in solid state physics and molecular dynamics, we should
-take Ewald summation technique.
-
-In the Stokes flows, there are mainly two formulations exist:
-Hasimoto's formulation\cite{Hasimoto1959}
-and Beenakker's formulation\cite{Beenakker1986}.
-
-
-
-
-\chapter{{\tt libiter}: Library of Iterative Solvers}
-\label{chp:libiter}
-\section{API}
-Explain API.
-
-\section{Iterative Method for Dense Matrix}
-library of iterative solvers for the linear set of equations
-\cite{ichiki2001}
-
-
-\section{Schemes}
-\begin{itemize}
-\item Steepest Descent
-\item Conjugate Gradient
-\item Conjugate Gradient Squared
-\item Bi-Conjugate Stabilized
-\item Generalized Minimum Residual
-\end{itemize}
-
-
-
 \chapter{{\tt stokes}: Stokesian Dynamics Simulator}
 \label{chp:stokes}
-
-\section{Wrappers}
-Currently {\tt libstokes} can be used from the following programming languages:
+{\bf RYUON-stokes} is a package of applications using {\tt libstokes};
 \begin{itemize}
-\item C (native)
-\item Python
-\item Perl
-\item Ruby
-\item Guile
-\item Octave
+\item {\tt stokes3} : Stokesian dynamics simulator
+\item {\tt xi3} : Tuning program for the Ewald summation
+\item Visualization and other utilities
+\item Wrappers for the scripting languages,
+  Python, Perl, Ruby, Guile, and Octave.
 \end{itemize}
 
+
+\section{{\tt stokes3}:
+  Stokesian Dynamics Simulator}
+{\tt stokes3} in {\bf RYUON-stokes} package is a general-purpose 
+Stokesian dynamics simulator.
+This simulator covers all range of the implementations in {\tt libstokes}:
+\begin{itemize}
+\item F, FT, and FTS versions
+\item periodic and non-periodic boundary conditions
+\item monodisperse and polydisperse systems
+\item with and without lubrication correction
+\item with and without fixed particles
+\item particles as well as chain(s) of particles connected by spring
+\end{itemize}
+Because it is the simulator for dynamics,
+only mobility problem (or mixed problem with fixed particles) are used.
+
+Two dynamics for massless and massive particles are implemented.
+
+\subsection{Dynamics}
+\subsubsection{Massless Particles}
+Colloidal particles are small and the inertial effect of the particle 
+is also neglected in the conventional Stokesian dynamics.
+The dynamics for such massless particles are
+\begin{equation}
+  \frac{{\rm d}\bm{x}}{{\rm d}t}
+  =
+  \bm{U}
+  ,
+\end{equation}
+where $\bm{U}$ is the particle velocity.
+For massless particles, $\bm{U}$ is obtained
+by the mobility (or mixed) problem
+\begin{equation}
+  \bm{U}
+  =
+  \bm{M}\cdot\bm{F}_{\text{ext}}
+  ,
+\end{equation}
+where $\bm{F}_{\text{ext}}$ is the external force acting on the particle.
+
+To simulate the massless particle, set the parameter ``{\tt stokes}'' 
+in the initialization script zero.
+
+
+\subsubsection{Massive Particles}
+Relatively larger particles are used in some systems like fluidized beds,
+where the inertial effect is not negligible anymore.
+For such massive particles,
+a dynamics presented in Ref. \cite{IchikiHayakawa1995,IchikiHayakawa1998}
+is implemented:
+\begin{eqnarray}
+  \widetilde{\text{St}}\ 
+  \frac{{\rm d}\bm{U}}{{\rm d}t}
+  &=&
+  -\bm{U}+\bm{V}
+  ,
+  \\
+  \frac{{\rm d}\bm{x}}{{\rm d}t}
+  &=&
+  \bm{U}
+  ,
+\end{eqnarray}
+where $\widetilde{\text{St}}$ is the effective Stokes number
+representing the inertial effect of the particle,
+$\bm{U}$ is the particle velocity, and
+$\bm{V}$ is the terminal velocity obtained
+by the mobility (or mixed) problem in this case given by
+\begin{equation}
+  \bm{V}
+  =
+  \bm{M}\cdot\bm{F}_{\text{ext}}
+  .
+\end{equation}
+The parameter ``{\tt stokes}'' in the initialization script 
+corresponds to $\widetilde{\text{St}}$.
+
+
+In this dynamics, collisions among particles are implemented 
+not by the contact force but by the momentum exchange
+for the contact pairs. The frequency of the contact-check 
+is controlled by the parameter ``{\tt ncol}''.
+
+
+\paragraph{Simple Equation of Motion}
+The reason why the effective dynamics above are implemented
+rather than the simple Newton's equation of motion
+\begin{equation}
+  \text{St}
+  \frac{{\rm d}\bm{U}}{{\rm d}t}
+  =
+  -\bm{F}_{\text{stokes}}
+  +\bm{F}_{\text{ext}}
+  ,
+\end{equation}
+where $\text{St}$ is the true Stokes number
+and $\bm{F}_{\text{stokes}} = \bm{R}\cdot\bm{U}$,
+is that
+the latter gives similar behavior in the massless dynamics
+due to the strong (diverging) resistance in the lubrication.
+\cite{IchikiHayakawa1998}
+
+** I'll implement this dynamics soon. **
+
+
+\subsubsection{ODE parameters}
+To obtain the trajectory, the above equation of motion
+in the form of ordinary differential equation
+is integrated in time.
+In the code, ODE integrator in GSL library\cite{GSL} is used.
+
+Currently the following stepper routines are available:
+\begin{itemize}
+\item ``{\tt rk2}''       Embedded Runge-Kutta (2, 3) method.
+\item ``{\tt rk4}''       4th order (classical) Runge-Kutta.
+\item ``{\tt rkf45}''     Embedded Runge-Kutta-Fehlberg (4, 5) method.
+\item ``{\tt rkck}''      Embedded Runge-Kutta Cash-Karp (4, 5) method.
+\item ``{\tt rk8pd}''     Embedded Runge-Kutta Prince-Dormand (8,9) method.
+\item ``{\tt rk2imp}''    Implicit 2nd order Runge-Kutta at Gaussian points.
+\item ``{\tt rk4imp}''    Implicit 4th order Runge-Kutta at Gaussian points.
+\item ``{\tt gear1}''     M=1 implicit Gear method.
+\item ``{\tt gear2}''     M=2 implicit Gear method.
+\end{itemize}
+Set the name at ``{\tt ode-solver}'' in the initialization script.
+
+
+\subsection{{\tt libstokes} Parameters}
+\begin{itemize}
+\item {\tt version} : (string) ``{\tt F},'' ``{\tt FT},'' or ``{\tt FTS}.''
+\item {\tt flag-mat}: (bool)
+  {\tt \#t} for matrix scheme,
+  {\tt \#f} for atimes scheme
+\item {\tt flag-lub}: (bool)
+  {\tt \#t} with lub,
+  {\tt \#f} without lub
+\item {\tt lub-min}: (double) minimum cutoff of distance for lubrication
+\item {\tt lub-max}: (double) maximum cutoff of distance for lubrication
+\item {\tt periodic}: (bool)
+  {\tt \#t} for periodic systems
+  {\tt \#f} for open boundary systems
+\end{itemize}
+The following parameters are only for the periodic systems:
+\begin{itemize}
+\item {\tt ewald-tr}: (double) time ratio $T_r/T_k$ for Ewald summation
+\item {\tt ewald-eps}: (double) cut-off limit for Ewald summation
+\item {\tt lattice}: (list of doubles) size of the periodic box
+\end{itemize}
+(See Section \ref{sec:xi3} for the details.)
+
+
+\subsection{System Parameters}
+\begin{itemize}
+\item {\tt np} : (int) number of {\it all} particles (both mobile and fixed)
+\item {\tt nm} : (int) number of {\it mobile} particles
+\item {\tt x} : (list or vector of doubles)
+  initial positions of {\it all} particles
+\item {\tt Ui} : (list or vector of doubles)
+  imposed translational velocity $\bm{u}^\infty$
+\item {\tt Oi} : (list or vector of doubles)
+  imposed angular velocity $\bm{\Omega}^\infty$
+\item {\tt Ei} : (list or vector of doubles)
+  imposed strain velocity $\bm{E}^\infty$
+\item {\tt F0} : (list or vector of doubles)
+  applied force $\bm{F}_{\text{ext}}$
+\item {\tt T0} : (list or vector of doubles)
+  applied force $\bm{T}_{\text{ext}}$
+\item {\tt stokes} : (doubles) effective Stokes number $\widetilde{\text{St}}$
+\item {\tt ncol} : (int) frequency of collision check in
+  {\tt dt} for $\widetilde{\text{St}}\neq 0$
+\end{itemize}
+Currently, the applied force $\bm{F}_{\text{ext}}$
+and torque $\bm{T}_{\text{ext}}$ are given by the single vector, respectively.
+(That is, all particles have the same force and torque.)
+** This should be extended soon. **
+
+
+\subsection{Parameter Script}
+Here's a sample initialization script:
+{\small
+\begin{verbatim}
+; sample initialization file for stokes3
+; SC lattice config of 8 particles in (5,5,5) box
+; $Id: manual.tex,v 1.3 2007/04/20 02:50:58 kichiki Exp $
+
+;; output parameters
+(define outfile    "stokes3.SC8.nc") ; output filename
+(define dt         1.0)     ; time interval
+(define nloop      1000)    ; main loop
+
+;; core libstokes parameters
+(define version    "F")     ; version. "F", "FT", or "FTS"
+(define flag-mat   #t)      ; #t => matrix scheme, #f => atimes scheme
+(define flag-lub   #t)      ; #t => with lub,      #f => without lub
+(define lub-min    2.0000000001) ; min cutoff of distance for lub
+(define lub-max    4.0)          ; max cutoff of distance for lub
+
+;; periodic systems
+(define periodic   #t)      ; #f => non periodic, #t => periodic
+(define ewald-tr   4.1)     ; time ratio Tr/Tk for Ewald summation
+(define ewald-eps  1.0e-12) ; cut-off limit for Ewald summation
+(define lattice    '(5.0  5.0  5.0)) ; size of the periodic box
+
+;; ODE parameters
+(define ode-solver "rkf45")
+; the following solvers are available
+; "rk2"       Embedded Runge-Kutta (2, 3) method.
+; "rk4"       4th order (classical) Runge-Kutta.
+; "rkf45"     Embedded Runge-Kutta-Fehlberg (4, 5) method.
+; "rkck"      Embedded Runge-Kutta Cash-Karp (4, 5) method.
+; "rk8pd"     Embedded Runge-Kutta Prince-Dormand (8,9) method.
+; "rk2imp"    Implicit 2nd order Runge-Kutta at Gaussian points.
+; "rk4imp"    Implicit 4th order Runge-Kutta at Gaussian points.
+; "gear1"     M=1 implicit Gear method.
+; "gear2"     M=2 implicit Gear method.
+(define ode-eps 1.0e-6) ; ODE control parameter eps
+
+;; system parameters
+(define np         8)       ; number of particles
+(define nm         8)       ; number of free particles
+
+; initial configuration
+(define x #(
+0.0  0.0  0.0
+2.5  0.0  0.0
+0.0  2.5  0.0
+0.0  0.0  2.5
+0.0  2.5  2.5
+2.5  0.0  2.5
+2.5  2.5  0.0
+2.5  2.5  2.5
+))
+
+(define Ui '(0.0  0.0  0.0)) ; imposed translational velocity
+(define Oi '(0.0  0.0  0.0)) ; imposed angular velocity relative to O
+(define Ei '(0.0  0.0  0.0  0.0  0.0)) ; imposed strain relative to O
+
+(define F0 '(0.0  0.0 -0.1)) ; applied force
+(define T0 '(0.0  0.0  0.0)) ; applied torque
+
+(define stokes     0.0)     ; effective stokes number
+(define ncol       10)      ; frequency of collision check in dt for st != 0
+
+
+;; bond parameters
+(define bonds '())
+(define flag-relax #f) ; #f => stokesian dynamics with bond interactions
+                       ; #t => relaxation dynamics only with bond interactions
+(define gamma 1.0)     ; friction coefficient for relaxation dynamics
+\end{verbatim}
+}
+
+
+\subsection{Help}
+{\small
+\begin{verbatim}
+$ ./stokes3 --help
+Stokesian dynamics simulator
+$Id: manual.tex,v 1.3 2007/04/20 02:50:58 kichiki Exp $
+
+USAGE
+./stokes3 init-file
+        where init-file is a SCM file (default: stokes3.scm)
+
+Parameters in the init-file:
+* output parameters
+        outfile    : filename for NetCDF output
+        dt         : time interval for outputs
+        nloop      : number of loops for dt
+* core libstokes parameters
+        version    : "F", "FT", or "FTS"
+        flag-mat   : #t for matrix-scheme,
+                   : #f for atimes-scheme.
+        flag-lub   : #t for with-lubrication,
+                   : #f for no-lubrication.
+        periodic   : #f for non-periodic systems,
+                   : #t for periodic systems.
+                     set the next three parameters for the periodic case.
+        ewald-tr   : time ratio Tr/Tk for ewald summation (see xi3 in details.)
+        ewald-eps  : tolerance value for ewald-summation cut-off
+        lattice    : size of the periodic box (list or vector of length 3)
+* ODE parameters
+        ode-solver : GSL ODE solver
+                "rk2"    Embedded Runge-Kutta (2, 3) method.
+                "rk4"    4th order (classical) Runge-Kutta.
+                "rkf45"  Embedded Runge-Kutta-Fehlberg (4, 5) method.
+                "rkck"   Embedded Runge-Kutta Cash-Karp (4, 5) method.
+                "rk8pd"  Embedded Runge-Kutta Prince-Dormand (8,9) method.
+                "rk2imp" Implicit 2nd order Runge-Kutta at Gaussian points.
+                "rk4imp" Implicit 4th order Runge-Kutta at Gaussian points.
+                "gear1"  M=1 implicit Gear method.
+                "gear2"  M=2 implicit Gear method.
+        ode-eps    : GSL ODE control parameter eps
+* system parameters
+        np         : number of ALL (mobile and fixed) particles
+        nm         : number of mobile particles
+        x          : particle configuration (list or vector with length 3*np)
+        Ui         : imposed translational velocity (list or vector of length 3)
+        Oi         : imposed angular velocity (list or vector of length 3)
+        Ei         : imposed strain (list or vector of length 5)
+        F0         : applied force (list or vector of length 3)
+        T0         : applied torque (list or vector of length 3)
+        stokes     : effective stokes number
+        ncol       : frequency of collision check in dt for stokes != 0
+* bond parameters (for chains)
+        bonds      : bonds among particles, list in the following form
+                (define bonds
+                  '(
+                    (; bond 1
+                     1.0 ; spring const
+                     2.1 ; natural distance
+                     ((0 1) ; list of pairs
+                      (1 2)
+                      (2 3)))
+                    (; bond 2
+                     1.0 ; spring const
+                     2.5 ; natural distance
+                     ((4 5) ; list of pairs
+                      (5 6)
+                      (6 7)))
+                    )
+                  )
+        flag_relax : #f stokesian dynamics,
+                   : #t relaxation dynamics for bonds.
+        gamma      : friction coefficient for the relaxation dynamics
+\end{verbatim}
+}
+
 \section{{\tt xi3}:
-  Tuning program for ewald summation parameter}
+  Tuning Program for the Ewald Summation}
+\label{sec:xi3}
 {\tt xi3} in {\bf RYUON-stokes} package
 is a tuning program for ewald summation parameter $\xi$.
 
@@ -1090,7 +582,7 @@ A sample configuration file ({\tt xi3.scm}) is given in the package:
 \begin{verbatim}
 ; sample set file for xi3
 ; SC lattice config of 8 particles in (5,5,5) box
-; $Id: manual.tex,v 1.2 2006/10/24 20:11:51 kichiki Exp $
+; $Id: manual.tex,v 1.3 2007/04/20 02:50:58 kichiki Exp $
 (define version    "F")     ; version. "F", "FT", or "FTS"
 (define flag-mat   #t)      ; #t => matrix scheme, #f => atimes scheme
 (define flag-notbl #f)      ; #t => no-table,      #f => with table
@@ -1290,6 +782,1373 @@ Parameters in the init-file:
 }
 
 
+\section{Visualization and Other Utilities}
+\begin{itemize}
+\item {\tt stvis-glut} : visualization tool by
+  GLUT ({\bf OpenGL} Utility Toolkit)\cite{OpenGL}
+\item {\tt stvis-vtk.py} : visualization tool by
+  {\bf VTK} (Visualization Toolkit)\cite{VTK}
+\item {\tt stnc2pov.py} : generator of POV-Ray scenes
+\item {\tt stncdump.py} : dump tool for the NetCDF output file
+\end{itemize}
+
+
+\section{Wrappers}
+You can write your own application.
+Currently {\tt libstokes} can be used from the following programming languages:
+\begin{itemize}
+\item C (native)
+\item Python
+\item Perl
+\item Ruby
+\item Guile
+\item Octave
+\end{itemize}
+
+\subsection{C}
+First, let's look at a very simple code {\tt test-stokes}
+written in C, where a resistance problem for 8 particles
+in the simple cubic lattice configuration in
+the cubic periodic cell with the size of $10$ is solved
+for the constant velocity $\bm{U} = (1,1,1)$
+by the solver {\tt solve\_res\_3f()}.
+{\small
+\begin{verbatim}
+int
+main (int argc, char** argv)
+{
+  struct stokes *sys = stokes_init ();
+
+  int np, nm;
+  np = 8;
+  nm = 8;
+  stokes_set_np (sys, np, nm);
+
+  sys->periodic = 1; // periodic boundary condition
+  double lx, ly, lz;
+  lx = 10.0;
+  ly = 10.0;
+  lz = 10.0;
+  stokes_set_l (sys, lx, ly, lz);
+
+  double ewald_tr = 60.25;
+  double xi = xi_by_tratio (sys, ewald_tr);
+
+  double ewald_eps = 1.0e-12;
+  stokes_set_xi (sys, xi, ewald_eps);
+
+  fprintf (stdout, "xi = %f\n", xi);
+
+  sys->lubmin = 2.0000000001;
+  sys->lubmax = 4.0;
+  stokes_set_iter (sys, "gmres", 2000, 20, 1.0e-6, 1, stdout);
+
+  int i;
+  double * pos;
+  double * u;
+  double * f;
+  pos = (double *)calloc (np * 3, sizeof (double));
+  u   = (double *)calloc (np * 3, sizeof (double));
+  f   = (double *)calloc (np * 3, sizeof (double));
+
+  pos[ 0] = 0.0; // x component
+  pos[ 1] = 0.0; // y component
+  pos[ 2] = 0.0; // z component
+  pos[ 3] = 5.0; pos[ 4] = 0.0; pos[ 5] = 0.0;
+  pos[ 6] = 0.0; pos[ 7] = 5.0; pos[ 8] = 0.0;
+  pos[ 9] = 0.0; pos[10] = 0.0; pos[11] = 5.0;
+  pos[12] = 5.0; pos[13] = 5.0; pos[14] = 0.0;
+  pos[15] = 0.0; pos[16] = 5.0; pos[17] = 5.0;
+  pos[18] = 5.0; pos[19] = 0.0; pos[20] = 5.0;
+  pos[21] = 5.0; pos[22] = 5.0; pos[23] = 5.0;
+
+  for (i = 0; i < np * 3; i ++)
+    {
+      u[i] = 1.0;
+    }
+
+  fprintf (stdout, "pos:\n");
+  for (i = 0; i < np; i ++)
+    {
+      fprintf (stdout, "%d %f %f %f\n",
+	       i,
+	       pos[i*3 + 0],
+	       pos[i*3 + 1],
+	       pos[i*3 + 2]);
+    }
+
+  fprintf (stdout, "u:\n");
+  for (i = 0; i < np; i ++)
+    {
+      fprintf (stdout, "%d %f %f %f\n",
+	       i,
+	       u[i*3 + 0],
+	       u[i*3 + 1],
+	       u[i*3 + 2]);
+    }
+
+  stokes_set_pos (sys, pos);
+
+  solve_res_3f (sys, u, f);
+
+  fprintf (stdout, "f:\n");
+  for (i = 0; i < np; i ++)
+    {
+      fprintf (stdout, "%d %f %f %f\n",
+	       i,
+	       f[i*3 + 0],
+	       f[i*3 + 1],
+	       f[i*3 + 2]);
+    }
+
+  return 0;
+}
+\end{verbatim}
+}
+
+\subsection{Python}
+The same procedure can be written in {\bf Python}\cite{Python}
+in the following:
+{\small
+\begin{verbatim}
+import stokes
+
+sys = stokes.stokes_init()
+
+np = 8
+nm = 8
+stokes.stokes_set_np(sys, np, nm)
+
+sys.periodic = 1 # periodic boundary condition
+lx = 10.0
+ly = 10.0
+lz = 10.0
+stokes.stokes_set_l(sys, lx, ly, lz)
+
+ewald_tr = 60.25
+xi = stokes.xi_by_tratio(sys, ewald_tr)
+ewald_eps = 1.0e-12
+stokes.stokes_set_xi(sys, xi, ewald_eps)
+
+print 'xi =', xi
+
+sys.lubmin = 2.0000000001
+sys.lubmax = 4.0
+stokes.stokes_set_iter(sys, "gmres", 2000, 20, 1.0e-6,
+                       1, stokes.get_stdout())
+
+pos = stokes.darray(np*3)
+u   = stokes.darray(np*3)
+f   = stokes.darray(np*3)
+
+pos[ 0] = 0.0 # x component
+pos[ 1] = 0.0 # y component
+pos[ 2] = 0.0 # z component
+
+## snip ##
+
+pos[21] = 5.0
+pos[22] = 5.0
+pos[23] = 5.0
+
+for i in range(np*3):
+    u[i] = 1.0
+
+print 'pos:'
+for i in range(np):
+    print i, pos[i*3], pos[i*3+1], pos[i*3+2]
+
+print 'u:'
+for i in range(np):
+    print i, u[i*3], u[i*3+1], u[i*3+2]
+
+stokes.stokes_set_pos(sys, pos)
+stokes.solve_res_3f(sys, u, f)
+
+nc_f = stokes.stokes_nc_mob_f_init("test-stokes.res-3f.nc", np)
+# f0, x, u are active
+stokes.stokes_nc_set_f0(nc_f, f)
+stokes.stokes_nc_set_time(nc_f, 0, 0.0)
+stokes.stokes_nc_set_x(nc_f, 0, pos)
+stokes.stokes_nc_set_u(nc_f, 0, u)
+
+stokes.stokes_nc_free(nc_f)
+
+
+print 'f:'
+for i in range(np):
+    print i, f[i*3], f[i*3+1], f[i*3+2]
+\end{verbatim}
+}
+
+\subsection{Perl}
+In {\bf Perl}\cite{Perl},
+{\small
+\begin{verbatim}
+use stokes;
+
+$sys = stokes::stokes_init();
+
+$np = 8;
+$nm = 8;
+stokes::stokes_set_np($sys, $np, $nm);
+# you must call stokes_set_np() because
+# this also allocate the memory for pos.
+
+$sys->{periodic} = 1; # periodic boundary condition
+$lx = 10.0;
+$ly = 10.0;
+$lz = 10.0;
+stokes::stokes_set_l($sys, $lx, $ly, $lz);
+
+$ewald_tr = 60.25;
+$xi = stokes::xi_by_tratio($sys, $ewald_tr);
+$ewald_eps = 1.0e-12;
+stokes::stokes_set_xi($sys, $xi, $ewald_eps);
+
+print "xi = ", $xi, "\n";
+
+$sys->{lubmin} = 2.0000000001;
+$sys->{lubmax} = 4.0;
+stokes::stokes_set_iter($sys, "gmres", 2000, 20, 1.0e-6,
+			1, stokes::get_stdout());
+
+$pos = new stokes::darray($np*3);
+$u   = new stokes::darray($np*3);
+$f   = new stokes::darray($np*3);
+
+$pos->setitem( 0, 0.0); # x component
+$pos->setitem( 1, 0.0); # y component
+$pos->setitem( 2, 0.0); # z component
+$pos->setitem( 3, 5.0); $pos->setitem( 4, 0.0); $pos->setitem( 5, 0.0);
+$pos->setitem( 6, 0.0); $pos->setitem( 7, 5.0); $pos->setitem( 8, 0.0);
+$pos->setitem( 9, 0.0); $pos->setitem(10, 0.0); $pos->setitem(11, 5.0);
+$pos->setitem(12, 5.0); $pos->setitem(13, 5.0); $pos->setitem(14, 0.0);
+$pos->setitem(15, 0.0); $pos->setitem(16, 5.0); $pos->setitem(17, 5.0);
+$pos->setitem(18, 5.0); $pos->setitem(19, 0.0); $pos->setitem(20, 5.0);
+$pos->setitem(21, 5.0); $pos->setitem(22, 5.0); $pos->setitem(23, 5.0);
+
+for ($i=0; $i < $np*3; $i++){
+    $u->setitem($i, 1.0);
+}
+
+print "pos:\n";
+for ($i=0; $i < $np; $i++){
+    printf ("%d %f %f %f\n",
+	    $i,
+	    $pos->getitem($i*3),
+	    $pos->getitem($i*3+1),
+	    $pos->getitem($i*3+2));
+}
+print "u:\n";
+for ($i=0; $i < $np; $i++){
+    printf ("%d %f %f %f\n",
+	    $i,
+	    $u->getitem($i*3),
+	    $u->getitem($i*3+1),
+	    $u->getitem($i*3+2));
+}
+
+#$sys->{pos} = $pos;
+stokes::stokes_set_pos($sys, $pos);
+stokes::solve_res_3f($sys, $u, $f);
+
+$nc_f = stokes::stokes_nc_mob_f_init("test-stokes.res-3f.nc", $np);
+# f0, x, u are active
+stokes::stokes_nc_set_f0($nc_f, $f);
+stokes::stokes_nc_set_time($nc_f, 0, 0.0);
+stokes::stokes_nc_set_x($nc_f, 0, $pos);
+stokes::stokes_nc_set_u($nc_f, 0, $u);
+
+stokes::stokes_nc_free($nc_f);
+
+
+print "f:\n";
+for ($i=0; $i < $np; $i++){
+    printf ("%d %f %f %f\n",
+	    $i,
+	    $f->getitem($i*3),
+	    $f->getitem($i*3+1),
+	    $f->getitem($i*3+2));
+}
+\end{verbatim}
+}
+
+\subsection{Ruby}
+In {\bf Ruby}\cite{Ruby},
+{\small
+\begin{verbatim}
+require 'stokes'
+
+sys = Stokes::stokes_init()
+
+np = 8
+nm = 8
+Stokes::stokes_set_np(sys, np, nm)
+# you must call stokes_set_np() because
+# this also allocate the memory for pos.
+
+sys.periodic = 1 # periodic boundary condition
+lx = 10.0
+ly = 10.0
+lz = 10.0
+Stokes::stokes_set_l(sys, lx, ly, lz)
+# you must call stokes_set_l() becuase
+# this also initialize parameters other than lx,ly,lz.
+
+ewald_tr = 60.25
+xi = Stokes::xi_by_tratio(sys, ewald_tr)
+ewald_eps = 1.0e-12
+Stokes::stokes_set_xi(sys, xi, ewald_eps)
+
+print "xi = ", xi, "\n"
+
+sys.lubmin = 2.0000000001
+sys.lubmax = 4.0
+Stokes::stokes_set_iter(sys, "gmres", 2000, 20, 1.0e-6,
+                        1, Stokes::get_stdout())
+
+pos = Stokes::Darray.new(np*3)
+u   = Stokes::Darray.new(np*3)
+f   = Stokes::Darray.new(np*3)
+
+# set pos in SC lattice configuration
+pos[ 0] = 0.0 # x component
+pos[ 1] = 0.0 # y component
+pos[ 2] = 0.0 # z component
+
+## snip ##
+
+pos[21] = 5.0
+pos[22] = 5.0
+pos[23] = 5.0
+
+for i in 0..(np*3-1)
+    u[i] = 1.0
+end
+
+print "pos:\n"
+for i in 0..(np-1)
+    print i, ' ', pos[i*3], ' ', pos[i*3+1], ' ', pos[i*3+2], "\n"
+end
+
+print "u:\n"
+for i in 0..(np-1)
+    print i, ' ', u[i*3], ' ', u[i*3+1], ' ', u[i*3+2], "\n"
+end
+
+#sys.pos = pos
+Stokes::stokes_set_pos(sys, pos)
+Stokes::solve_res_3f(sys, u, f)
+
+nc_f = Stokes::stokes_nc_mob_f_init("test-stokes.res-3f.nc", np)
+# f0, x, u are active
+Stokes::stokes_nc_set_f0(nc_f, f)
+Stokes::stokes_nc_set_time(nc_f, 0, 0.0)
+Stokes::stokes_nc_set_x(nc_f, 0, pos)
+Stokes::stokes_nc_set_u(nc_f, 0, u)
+
+Stokes::stokes_nc_free(nc_f)
+
+
+print "f:\n"
+for i in 0..(np-1)
+    print i, ' ', f[i*3], ' ', f[i*3+1], ' ', f[i*3+2], "\n"
+end
+\end{verbatim}
+}
+
+\subsection{Guile}
+In {\bf Guile}\cite{guile},
+{\small
+\begin{verbatim}
+(load-extension "./stokes.so" "SWIG_init")
+
+; diaplay darray in 3
+(define (display-darray3 da n)
+  (do ((i 0 (1+ i)))
+      ((>= i n))
+    (display i)
+    (display ": ")
+    (display (darray-getitem da (* i 3)))
+    (display " ")
+    (display (darray-getitem da (+ 1 (* i 3))))
+    (display " ")
+    (display (darray-getitem da (+ 2 (* i 3))))
+    (newline)))
+
+
+(define sys (stokes-init))
+
+(define np 8)
+(define nm 8)
+(stokes-set-np sys np nm)
+
+(set! (stokes-periodic sys) 1) ; periodic boundary condition
+(define lx 10.0)
+(define ly 10.0)
+(define lz 10.0)
+(stokes-set-l sys lx ly lz)
+
+(define ewald-tr 60.25)
+(define xi (xi-by-tratio sys ewald-tr))
+
+(define ewald-eps 1.0e-12)
+(stokes-set-xi sys xi ewald-eps)
+
+(display "xi = ")
+(display xi)
+(newline)
+
+;(stokes-lubmin-set sys 2.0000000001)
+;(stokes-lubmin-get sys)
+; with '-emit-setter' on swig, you can write those as
+(set! (stokes-lubmin sys) 2.0000000001)
+;(stokes-lubmin sys)
+(set! (stokes-lubmax sys) 4.0)
+;(stokes-lubmax sys)
+
+(stokes-set-iter sys "gmres" 2000 20 1.0e-6 1 (get-stdout))
+
+(define pos (new-darray (* np 3)))
+(define u   (new-darray (* np 3)))
+(define f   (new-darray (* np 3)))
+
+; set pos in SC lattice configuration
+(darray-setitem pos 0  0.0) ; x component
+(darray-setitem pos 1  0.0) ; y component
+(darray-setitem pos 2  0.0) ; z component
+
+;; snip ;;
+
+(darray-setitem pos 21 5.0)
+(darray-setitem pos 22 5.0)
+(darray-setitem pos 23 5.0)
+
+; set u and f
+(do ((i 0 (1+ i)))
+    ((>= i (* np 3)))
+  (darray-setitem u i 1.0))
+
+(display "pos:")
+(newline)
+(display-darray3 pos np)
+
+(display "u:")
+(newline)
+(display-darray3 u np)
+
+(stokes-set-pos sys pos)
+(solve-res-3f sys u f)
+
+(define nc-f (stokes-nc-mob-f-init "test-stokes.res-3f.nc" np))
+;; f0, x, u are active
+
+(stokes-nc-set-f0 nc-f f)
+(stokes-nc-set-time nc-f 0 0.0)
+(stokes-nc-set-x nc-f 0 pos)
+(stokes-nc-set-u nc-f 0 u)
+
+(stokes-nc-free nc-f)
+
+
+(display "f:")
+(newline)
+(display-darray3 f np)
+\end{verbatim}
+}
+
+\subsection{Octave}
+For {\bf Octave}\cite{Octave}, there is no {\bf SWIG}\cite{SWIG}.
+Currently only the function {\tt stokes\_res\_3f()} is exported.
+You can call it in {\bf Octave} script something like that;
+{\small
+\begin{verbatim}
+# lattice vector
+l = [10.0, 10.0, 10.0]
+
+# position of particles (np = 8)
+pos = [0.0, 0.0, 0.0,\
+	0.0, 0.0, 5.0,\
+	0.0, 5.0, 0.0,\
+	0.0, 5.0, 5.0,\
+	5.0, 0.0, 0.0,\
+	5.0, 0.0, 5.0,\
+	5.0, 5.0, 0.0,\
+	5.0, 5.0, 5.0]
+
+# velocity of particles
+u = [1.0, 1.0, 1.0,\
+      1.0, 1.0, 1.0,\
+      1.0, 1.0, 1.0,\
+      1.0, 1.0, 1.0,\
+      1.0, 1.0, 1.0,\
+      1.0, 1.0, 1.0,\
+      1.0, 1.0, 1.0,\
+      1.0, 1.0, 1.0]
+
+# solve resistance problem and obtain force
+f = stokes_res_3f(pos, u, l, 60.25)
+\end{verbatim}
+}
+
+
+
+\chapter{{\tt libstokes}:
+  Library for Stokesian Dynamics}
+\label{chp:libstokes}
+\section{API}
+
+\subsection{System Parameters}
+System parameters such as the number of particles
+are passed to the solver routines by {\tt struct stokes}.
+
+\paragraph{Constructor/Destructor}
+\begin{itemize}
+\item {\tt stokes\_init ();}
+\item {\tt stokes\_free (sys);}
+\end{itemize}
+
+
+\paragraph{Initialize Functions}
+\begin{verbatim}
+/* set np and nm and allocate the memory for pos[np*3]
+ */
+void
+stokes_set_np (struct stokes * sys,
+	       int np, int nm);
+
+void
+stokes_set_l (struct stokes * sys,
+	      double lx, double ly, double lz);
+
+void
+stokes_set_xi (struct stokes * sys,
+	       double xi, double cutlim);
+
+double
+xi_by_tratio (struct stokes * sys,
+	      double tratio);
+
+/* set iter param
+ * INPUT
+ *   solver : string indicating the solver
+ *            sta, sta2, gpb, otmk, or gmres (default)
+ *   eps and log10_eps
+ *   max (and restart)
+ *   debug = 0 : no debug info
+ *         = 1 : iteration numbs and residue
+ *   out   : FILE * to output debug info.
+ */
+void
+stokes_set_iter (struct stokes * sys,
+		 const char * solver,
+		 int max,
+		 int restart,
+		 double eps,
+		 int debug,
+		 FILE * out);
+
+/* set pos for all particles safely by another array
+ * INPUT
+ *  pos[np*3] :
+ * OUTPUT
+ *  sys->pos[i] for (i = 0; i < np*3)
+ */
+void
+stokes_set_pos (struct stokes *sys,
+		const double *pos);
+
+/* set pos for mobile particles safely by another array
+ * INPUT
+ *  pos[nm*3] :
+ * OUTPUT
+ *  sys->pos[i] for (i = 0; i < nm*3)
+ */
+void
+stokes_set_pos_mobile (struct stokes *sys,
+		       const double *pos);
+
+/* set pos for fixed particles safely by another array
+ * INPUT
+ *  pos[nf*3] : only fixed particles are set, where nf = np - nm
+ * OUTPUT
+ *  sys->pos[i] for (i = nm*3; i < np*3)
+ */
+void
+stokes_set_pos_fixed (struct stokes *sys,
+		      const double *pos);
+\end{verbatim}
+
+\subsection{NetCDF Interface}
+In the library, most data is treated by the pointer
+{\tt double *}. Here NetCDF interface for {\tt libstokes}
+is prepared for file I/O.
+
+\paragraph{Constructor/Destructor}
+The following constructor returns NetCDF id by the returned value.
+\begin{itemize}
+\item {\tt stokes\_nc\_mob\_f\_init (filename, np);}\\
+  activated entries are {\tt f0, x, u}.
+\item {\tt stokes\_nc\_mob\_ft\_init (filename, np);}\\
+  activated entries are {\tt f0, t0, x, u, o}.
+\item {\tt stokes\_nc\_mob\_fts\_init (filename, np);}\\
+  activated entries are {\tt f0, t0, e0, x, u, o, s}.
+\item {\tt stokes\_nc\_mob\_fix\_f\_init (filename, nm, nf);}\\
+  activated entries are {\tt xf0, f0, uf0, x, u, ff}.
+\item {\tt stokes\_nc\_mob\_fix\_ft\_init (filename, np);}\\
+  activated entries are {\tt xf0, f0, t0, uf0, of0, x, u, o, ff, tf}.
+\item {\tt stokes\_nc\_mob\_fix\_fts\_init (filename, np);}\\
+  activated entries are {\tt xf0, f0, t0, e0, uf0, of0, ef0,
+  x, u, o, s, ff, tf, sf}.
+\item {\tt stokes\_nc\_free (nc);}\\
+  destructor of NetCDF data structure.
+\end{itemize}
+
+
+\paragraph{Writing Routines}
+To set the values to NetCDF data structure,
+use the following routines:
+\begin{itemize}
+\item {\tt stokes\_nc\_set\_?0 (nc, ?0);}\\
+    define quantity ``?'' at $t=t_0$,
+\item {\tt stokes\_nc\_set\_time (nc, step, time);}\\
+    define time $t$ for the step ``{\tt step}'',
+\item {\tt stokes\_nc\_set\_? (nc, step, time, ?);}\\
+    define quantity ``?'' at $t$ ({\tt step}),
+\end{itemize}
+where ``?'' is either
+{\tt x, u, o, e, f, t, s} (for mobile particles), or
+{\tt xf, uf, of, ef, ff, tf, sf} (for fixed particles).
+
+
+
+\subsection{Solvers}
+Each solver has the name in the form of
+\begin{equation}
+  {\tt void\quad solve\_\langle type\rangle\_\langle lub\rangle\_\langle d\rangle\langle ver\rangle\_\langle mat\rangle(sys,\ givens,\ unknowns);}
+\end{equation}
+
+\paragraph{Type of Problem $\langle${\tt type}$\rangle$}
+\begin{itemize}
+\item ({\tt res}): Resistance Problems\\
+  $({\tt u, o, e}) \mapsto ({\tt f, t, s})$
+\item ({\tt mob}): Mobility Problems\\
+  $({\tt f, t, e}) \mapsto ({\tt u, o, s})$
+\item ({\tt mix}): Mobility Problems with Fixed Particles\\
+  $({\tt f, t, e, uf, of, ef}) \mapsto ({\tt u, o, s, ff, tf, sf})$
+\end{itemize}
+
+\paragraph{Truncation Version $\langle${\tt ver}$\rangle$}
+\begin{itemize}
+\item ({\tt f}): F version
+\item ({\tt ft}): FT version
+\item ({\tt fts}): FTS version
+\end{itemize}
+
+\paragraph{Lubrication $\langle${\tt lub}$\rangle$}
+\begin{itemize}
+\item ({\tt lub}): with lubrication
+\item (): without lubrication
+\end{itemize}
+
+\paragraph{Matrix/$\bm{A}\cdot\bm{x}$ $\langle${\tt mat}$\rangle$}
+\begin{itemize}
+\item ({\tt matrix}): by matrix procedure
+\item (): by $\bm{A}\cdot\bm{x}$ procedure
+\end{itemize}
+
+\paragraph{3D/monolayer $\langle${\tt d}$\rangle$}
+\begin{itemize}
+\item ({\tt 3}): 3D version
+\item ({\tt 2}): monolayer version
+\end{itemize}
+
+
+\section{Stokes Flows}
+In the following, physical background is explained.
+
+Fluid is described by Navier-Stokes equation
+\begin{equation}
+  \frac{\partial}{\partial t}
+  \Bigl[
+    \rho
+    \bm{u}
+    +
+    \left(
+      \bm{u}
+      \cdot
+      \bm{\nabla}
+    \right)
+    \bm{u}
+  \Bigr]
+  =
+  -
+  \bm{\nabla}
+  p
+  +
+  \mu
+  \Delta
+  \bm{u}
+  ,
+  \label{eq:navier-stokes}
+\end{equation}
+where $\bm{u}$ is the fluid velocity,
+$p$ is the pressure, $\rho$ is the density,
+and $\mu$ is the viscosity.
+The differential operator
+\begin{equation}
+  \bm{\nabla}
+  =
+  \left[
+    \begin{array}{c}
+      \partial/\partial x\\
+      \partial/\partial y\\
+      \partial/\partial z
+    \end{array}
+  \right]
+  ,
+\end{equation}
+and $\Delta$ is the Laplacian
+\begin{equation}
+  \Delta
+  =
+  \bm{\nabla}
+  \cdot
+  \bm{\nabla}
+  =
+  \partial^2/\partial x^2
+  +
+  \partial^2/\partial y^2
+  +
+  \partial^2/\partial z^2
+  .
+\end{equation}
+This is the fluid equation of motion, in other words,
+the momentum balance equation and the counterpart of
+Newton's equation of motion $\bm{F} = m\bm{a}$.
+Actually, writing the viscous fluid stress by
+\begin{equation}
+  \bm{\sigma}
+  =
+  p
+  \bm{I}
+  +
+  \bm{\nabla}\bm{u}
+  +
+  \Bigl(
+  \bm{\nabla}\bm{u}
+  \Bigr)^\dagger
+  ,
+\end{equation}
+Navier-Stokes equation (\ref{eq:navier-stokes}) can be written by
+the similar equation of motion
+\begin{equation}
+  \frac{D}{D t}
+  \Bigl[
+    \rho
+    \bm{u}
+  \Bigr]
+  =
+  -
+  \bm{\nabla}
+  \cdot
+  \bm{\sigma}
+  .
+\end{equation}
+
+
+The Stokes flows, which is the target of {\tt libstokes},
+is where the viscous term in Eq. (\ref{eq:navier-stokes})
+is dominating to the inertial term.
+The ratio of the magnitude of these two terms are characterized
+by a dimensionless number called ``Reynolds number'' $Re$
+\begin{equation}
+  Re
+  :=
+  \frac{LU}{\mu}
+  ,
+\end{equation}
+where $L$ and $U$ are characteristic length and velocity.
+The Stokes flows are the flow of small Reynolds number.
+
+In the limit $Re\rightarrow 0$,
+the governing equation of fluids becomes
+\begin{equation}
+  \bm{0}
+  =
+  -
+  \bm{\nabla}
+  p
+  +
+  \mu
+  \Delta
+  \bm{u}
+  ,
+  \label{eq:stokes}
+\end{equation}
+which is a linear partial differential equation.
+In the following, we are studying fluid motions
+governed by Eq. (\ref{eq:stokes})
+for incompressible fluid
+\begin{equation}
+  \bm{\nabla}
+  \cdot
+  \bm{u}
+  =
+  0
+  .
+\end{equation}
+
+
+\section{Many Body Problem}
+In a viscous fluid, objects are dragged by the surrounding fluid.
+(Imagine when you are in water pool or the sea.)
+
+
+\begin{equation}
+  \bm{u}
+  (\bm{x})
+  =
+  -
+  \frac{1}{8\pi\mu}
+  \int_S
+  {\rm d}S(\bm{y})\ 
+  \bm{J}(\bm{x}-\bm{y})
+  \cdot
+  \bm{f}(\bm{y})
+  .
+  \label{eq:stokes-integral}
+\end{equation}
+
+Boundary value problem (Dirichlet problem).
+
+Expanding the integrand in the right-hand side
+of Eq. (\ref{eq:stokes-integral}),
+we have
+\begin{equation}
+  \bm{u}
+  (\bm{x})
+  =
+  -
+  \frac{1}{n!}
+  \sum_{n=0}^{\infty}
+  \frac{1}{8\pi\mu}
+  \Bigl[
+    (-)^n
+    \bm{\nabla}^n
+    \bm{J}
+  \Bigr]
+  (\bm{x}-\bm{y}_0)
+  \odot^n
+  \int_S
+  {\rm d}S(\bm{y})\ 
+  \Bigl[
+    \bm{y}
+    -
+    \bm{y}_0
+  \Bigr]^n
+  \bm{f}(\bm{y})
+  ,
+\end{equation}
+where we assume that the surface $S$ consists of a single sphere
+and $\bm{y}_0$ is its center.
+
+Note that the surface integral in the right-hand side
+is a tensor of order $(n+1)$ and
+is called the force moment $\mathcal{F}^{(n)}$
+\begin{equation}
+  \mathcal{F}^{(n)}
+  (\bm{y}_0)
+  :=
+  -
+  \int_S
+  {\rm d}S(\bm{y})\ 
+  \Bigl[
+    \bm{y}
+    -
+    \bm{y}_0
+  \Bigr]^n
+  \bm{f}(\bm{y})
+  ,
+\end{equation}
+and
+\begin{eqnarray}
+  \mathcal{F}^{(0)}
+  (\bm{y}_0)
+  &=&
+  \bm{F}
+  ,\\
+  \mathcal{F}^{(1)}
+  (\bm{y}_0)
+  &=&
+  \bm{\epsilon}
+  \cdot
+  \bm{T}
+  +
+  \bm{S}
+  .
+\end{eqnarray}
+Taking the terms up to $n=1$ and substituting the above,
+we have an expression\cite{DurlofskyEtal1987}
+\begin{equation}
+  \bm{u}
+  (\bm{x})
+  =
+  \Bigl(
+    1
+    +
+    \frac{a^2\nabla^2}{6}
+  \Bigr)
+  \bm{J}
+  (\bm{x}-\bm{y}_0)
+  \cdot
+  \bm{F}
+  +
+  \bm{R}
+  (\bm{x}-\bm{y}_0)
+  \cdot
+  \bm{T}
+  -
+  \Bigl(
+    1
+    +
+    \frac{a^2\nabla^2}{10}
+  \Bigr)
+  \bm{K}
+  (\bm{x}-\bm{y}_0)
+  \odot^2
+  \bm{S}
+  ,
+\end{equation}
+where $\bm{R}$ and $\bm{K}$ are given by
+\begin{eqnarray}
+  \bm{R}
+  &=&
+  ,\\
+  \bm{K}
+  &=&
+  .
+\end{eqnarray}
+
+
+Up to this order of expansion,
+if we introduce the corresponding velocity moments, that is,
+the translational and angular velocity $\bm{U}$ and $\bm{\Omega}$
+and the rate of strain tensor $\bm{E}$,
+we have the closed linear set of equations
+written in the matrix form as
+\begin{equation}
+  \left[
+    \begin{array}{c}
+      \bm{U}\\
+      \bm{\Omega}\\
+      \bm{E}
+    \end{array}
+  \right]
+  =
+  \left[
+    \begin{array}{ccc}
+      \bm{a} & \bm{b} & \bm{g}\\
+      \tilde{\bm{b}} & \bm{c} & \bm{h}\\
+      \tilde{\bm{g}} & \tilde{h} & \bm{m}
+    \end{array}
+  \right]
+  \cdot
+  \left[
+    \begin{array}{c}
+      \bm{F}\\
+      \bm{T}\\
+      \bm{S}
+    \end{array}
+  \right]
+  .
+  \label{eq:mob-fts}
+\end{equation}
+
+From the mathematical property of Eq. (\ref{eq:stokes-integral}),
+the whole matrix relating two vectors
+$(\bm{U}, \bm{\Omega}, \bm{E})^\dagger$ and
+$(\bm{F}, \bm{T}, \bm{S})^\dagger$
+should be symmetric.
+That is,
+\begin{eqnarray}
+  a_{ij} &=& a_{ji},\\
+  \tilde{b}_{ij} &=& b_{ji},\\
+  c_{ij} &=& c_{ji}.
+\end{eqnarray}
+However, we should note that
+once we reduce the elements of vectors,
+the symmetry does not hold.
+From the definition, the second order tensors $\bm{E}$ and $\bm{S}$
+are symmetric and traceless, so that only 5 components
+out of $3\times 3$ are independent.
+Without the reduction to the independent components,
+the linear set of equation becomes ill-defined
+and the inverse matrix (with the full components) are not unique.
+
+\paragraph{Question:}
+Is there any way of reduction
+preserving the symmetric nature?
+
+
+\section{FTS formulation}
+Equation (\ref{eq:mob-fts}) is the famous FTS formulation
+derived in the paper of Stokesian dynamics method\cite{DurlofskyEtal1987}.
+
+As shown above, it is natural form in the mathematical sense
+that $\bm{U}$, $\bm{\Omega}$ and $\bm{E}$ are in the left-hand side
+and $\bm{F}$, $\bm{T}$ and $\bm{S}$ are in the right-hand side.
+However, from physical point of view, especially for the rigid particles,
+it is not always the case.
+For instance, in the resistance problem,
+$\bm{U}$ and $\bm{\Omega}$ are given and
+$\bm{F}$ and $\bm{T}$ are unknown,
+while in the mobility problem,
+$\bm{F}$ and $\bm{T}$ are given and
+$\bm{U}$ and $\bm{\Omega}$ are unknown.
+But from the rigidity of the particles,
+$\bm{E}$ is always a given parameter and
+$\bm{S}$ is unknown.
+That is, for the mobility problem, it would be the natural form that
+\begin{equation}
+  \left[
+    \begin{array}{c}
+      \bm{U}\\
+      \bm{\Omega}\\
+      \bm{S}
+    \end{array}
+  \right]
+  =
+  \bm{M}'
+  \cdot
+  \left[
+    \begin{array}{c}
+      \bm{F}\\
+      \bm{T}\\
+      \bm{E}
+    \end{array}
+  \right]
+  .
+\end{equation}
+Actually, Kim {\it et al}.\cite{KimMifflin1985} take this form
+rather than Eq. (\ref{eq:mob-fts}).
+But, here, we stick to the FTS form of Eq. (\ref{eq:mob-fts})
+as in Jeffrey {\it et al}.
+Because the equation is linear,
+we can construct the FTE form from FTS as
+\begin{eqnarray}
+  {\bm{M}'}_{UF}
+  &=&
+  \bm{M}_{UF}
+  -
+  \bm{M}_{US}
+  \cdot
+  \Bigl(
+  \bm{M}_{ES}
+  \Bigr)^{-1}
+  \cdot
+  \bm{M}_{EF}
+  ,\\
+  {\bm{M}'}_{UE}
+  &=&
+  \bm{M}_{US}
+  \cdot
+  \Bigl(
+    \bm{M}_{ES}
+  \Bigr)^{-1}
+  ,\\
+  {\bm{M}'}_{SF}
+  &=&
+  -
+  \Bigl(
+    \bm{M}_{ES}
+  \Bigr)^{-1}
+  \cdot
+  \bm{M}_{EF}
+  ,\\
+  {\bm{M}'}_{SE}
+  &=&
+  \Bigl(
+    \bm{M}_{ES}
+  \Bigr)^{-1}
+  ,
+\end{eqnarray}
+for
+\begin{equation}
+  \left[
+    \begin{array}{c}
+      \bm{U}\\
+      \bm{S}
+    \end{array}
+  \right]
+  =
+  \left[
+    \begin{array}{cc}
+      {\bm{M}'}_{UF} & {\bm{M}'}_{UE}\\
+      {\bm{M}'}_{SF} & {\bm{M}'}_{SE}
+    \end{array}
+  \right]
+  \cdot
+  \left[
+    \begin{array}{c}
+      \bm{F}\\
+      \bm{E}
+    \end{array}
+  \right]
+  ,
+\end{equation}
+where
+\begin{equation}
+  \left[
+    \begin{array}{c}
+      \bm{U}\\
+      \bm{E}
+    \end{array}
+  \right]
+  =
+  \left[
+    \begin{array}{cc}
+      \bm{M}_{UF} & \bm{M}_{US}\\
+      \bm{M}_{EF} & \bm{M}_{ES}
+    \end{array}
+  \right]
+  \cdot
+  \left[
+    \begin{array}{c}
+      \bm{F}\\
+      \bm{S}
+    \end{array}
+  \right]
+  .
+\end{equation}
+Note that, for simplicity, we combine $\bm{\Omega}$ and $\bm{T}$ into
+$\bm{U}$ and $\bm{F}$ respectively.
+
+
+This procedure is exactly applied for the higher orders
+of expansions for rigid particles, because not only $\bm{E}$
+but the higher order velocity moments should be vanished
+(that is, these are always given parameters).
+
+
+\section{Fixed Particles -- Mixed Problem}
+When we are interested in particle dynamics,
+the mobility problem is the main target.
+However, in several situations, we may want to introduce
+fixed particles into the simulation representing some
+obstacles or vessel to support other mobile particles.
+\cite{IchikiHayakawa1995}
+In those cases, it is not a simple mobility problem but
+the mixed problems, that is,
+the ``mobility and resistance'' problem.
+
+\begin{equation}
+  \left[
+    \begin{array}{c}
+      \bm{U}^{m}\\
+      \bm{E}^{m}\\
+      \bm{U}^{f}\\
+      \bm{E}^{f}
+    \end{array}
+  \right]
+  =
+  \left[
+    \begin{array}{cccc}
+      \bm{M}_{UF}^{mm} & \bm{M}_{US}^{mm} & \bm{M}_{UF}^{mf} & \bm{M}_{US}^{mf}\\
+      \bm{M}_{EF}^{mm} & \bm{M}_{ES}^{mm} & \bm{M}_{EF}^{mf} & \bm{M}_{ES}^{mf}\\
+      \bm{M}_{UF}^{fm} & \bm{M}_{US}^{fm} & \bm{M}_{UF}^{ff} & \bm{M}_{US}^{ff}\\
+      \bm{M}_{EF}^{fm} & \bm{M}_{ES}^{fm} & \bm{M}_{EF}^{ff} & \bm{M}_{ES}^{ff}\\
+    \end{array}
+  \right]
+  \cdot
+  \left[
+    \begin{array}{c}
+      \bm{F}^{m}\\
+      \bm{S}^{m}\\
+      \bm{F}^{f}\\
+      \bm{S}^{f}
+    \end{array}
+  \right]
+  .
+\end{equation}
+
+
+
+\begin{equation}
+  \bm{B}
+  \cdot
+  \left[
+    \begin{array}{c}
+      \bm{F}^{m}\\
+      \bm{E}^{m}\\
+      \bm{U}^{f}\\
+      \bm{E}^{f}
+    \end{array}
+  \right]
+  =
+  \bm{A}
+  \cdot
+  \left[
+    \begin{array}{c}
+      \bm{U}^{m}\\
+      \bm{S}^{m}\\
+      \bm{F}^{f}\\
+      \bm{S}^{f}
+    \end{array}
+  \right]
+  ,
+  \label{eq:atimes-gen}
+\end{equation}
+where given parameters are in the left-hand side
+and the unknowns are in the right-hand side.
+It is straightforward to obtain the matrices $\bm{A}$ and $\bm{B}$
+by $\bm{M}$'s.
+\begin{equation}
+  \left[
+    \begin{array}{cccc}
+      -\bm{M}_{UF}^{mm} & \bm{0} & \bm{0} & \bm{0}\\
+      -\bm{M}_{EF}^{mm} & \bm{I} & \bm{0} & \bm{0}\\
+      -\bm{M}_{UF}^{fm} & \bm{0} & \bm{I} & \bm{0}\\
+      -\bm{M}_{EF}^{fm} & \bm{0} & \bm{0} & \bm{I}\\
+    \end{array}
+  \right]
+  \cdot
+  \left[
+    \begin{array}{c}
+      \bm{F}^{m}\\
+      \bm{E}^{m}\\
+      \bm{U}^{f}\\
+      \bm{E}^{f}
+    \end{array}
+  \right]
+  =
+  \left[
+    \begin{array}{cccc}
+      -\bm{I} & \bm{M}_{US}^{mm} & \bm{M}_{UF}^{mf} & \bm{M}_{US}^{mf}\\
+      \bm{0}  & \bm{M}_{ES}^{mm} & \bm{M}_{EF}^{mf} & \bm{M}_{ES}^{mf}\\
+      \bm{0}  & \bm{M}_{US}^{fm} & \bm{M}_{UF}^{ff} & \bm{M}_{US}^{ff}\\
+      \bm{0}  & \bm{M}_{ES}^{fm} & \bm{M}_{EF}^{ff} & \bm{M}_{ES}^{ff}\\
+    \end{array}
+  \right]
+  \cdot
+  \left[
+    \begin{array}{c}
+      \bm{U}^{m}\\
+      \bm{S}^{m}\\
+      \bm{F}^{f}\\
+      \bm{S}^{f}
+    \end{array}
+  \right]
+  .
+\end{equation}
+Because the matrices are unknown variables,
+the generalized form of linear set of equations (\ref{eq:atimes-gen})
+can be solved by the standard iterative method
+by giving the procedure to calculate $\bm{A}\cdot\bm{x}$
+with $\bm{A}$ in (\ref{eq:atimes-gen})
+for a given vector $\bm{b} = \bm{B}\cdot\bm{b}'$
+appeared in the left-hand side of Eq. (\ref{eq:atimes-gen}).
+
+
+To reduce the debugging cost (and extra complexity of the code),
+the implementation of the scheme in the library {\tt libstokes}
+is in this way.\footnote{
+  Sometimes, tailor-made implementations for each case,
+  that is, resistance, mobility, and mobility/resistance
+  (with fixed particles) problems for F, FT, and FTS versions
+  (therefore, $3\times 3 = 9$ cases), were faster,
+  but it is not drastic at the same time.
+  When everything has done and there's nothing to do,
+  I'll come back to this point and will revise the codes.}
+
+
+
+
+\section{Lubrication Correction}
+One of the innovation done by Stokesian dynamics
+\cite{BradyBossis1988,DurlofskyEtal1987,BradyEtal1988}
+is the model of lubrication into the system.
+
+\begin{eqnarray}
+  \bm{R}
+  \simeq
+  \left(
+    \bm{M}
+  \right)^{-1}
+  +
+  \bm{L}
+  .
+  \label{eq:res-lub}
+\end{eqnarray}
+
+In a straightforward implementation of this lubrication correction,
+even in F version, the mobility problem needs twice matrix-inversions.
+
+Here's some trick to prevent the extra matrix-inversion,
+which is usually the bottleneck of the calculation
+(especially for large systems).
+Substituting the resistance matrix (\ref{eq:res-lub})
+into the resistance equation and multiplying $\bm{M}$ from the left,
+we have the inverse-free matrix equation
+\begin{equation}
+  \Bigl(
+    \bm{I}
+    +
+    \bm{M}
+    \cdot
+    \bm{L}
+  \Bigr)
+  \cdot
+  \bm{U}
+  =
+  \bm{M}
+  \cdot
+  \bm{F}
+  ,
+\end{equation}
+where $\bm{U}$ and $\bm{F}$ contains all velocity and force moments
+for simplicity.
+Writing the equation in this form,
+we can always apply the generalized linear set of equation
+as in Eq. (\ref{eq:atimes-gen}) for any case.
+
+
+\section{Ewald Summation}
+Because of the long-range nature of the Stokeslet $\bm{J}$,
+we cannot take a simple cut-off model under the periodic
+boundary condition. As in the electrostatic interactions
+in solid state physics and molecular dynamics, we should
+take Ewald summation technique.
+
+In the Stokes flows, there are mainly two formulations exist:
+Hasimoto's formulation\cite{Hasimoto1959}
+and Beenakker's formulation\cite{Beenakker1986}.
+
+
+
+
+\chapter{{\tt libiter}: Library of Iterative Solvers}
+\label{chp:libiter}
+\section{API}
+Explain API.
+
+\section{Iterative Method for Dense Matrix}
+library of iterative solvers for the linear set of equations
+\cite{IchikiBrady2001}
+
+
+\section{Schemes}
+\begin{itemize}
+\item Steepest Descent
+\item Conjugate Gradient
+\item Conjugate Gradient Squared
+\item Bi-Conjugate Stabilized
+\item Generalized Minimum Residual
+\end{itemize}
+
+
+
 \chapter{{\tt libexp}:
   Library for Multipole Expansion}
 \label{chp:libexp}
@@ -1301,7 +2160,7 @@ Stokesian dynamics method.
 \item Mazur {\it et al}.
 \item Sangani {\it et al}.
 \end{itemize}
-I also developed yet another formalism.\cite{ichiki2002}
+I also developed yet another formalism.\cite{Ichiki2002}
 The library {\tt libexp} is its implementation.
 
 
@@ -1752,6 +2611,6 @@ possibility of such damages.}
 \bibliographystyle{siam}
 %\bibliographystyle{unsrt}
 %\bibliographystyle{prsty}
-\bibliography{mine,stokes,fmm}
+\bibliography{mine,stokes,fmm,opensource}
 
 \end{document}
