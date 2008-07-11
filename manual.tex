@@ -1,6 +1,6 @@
 % RYUON MANUAL
 % Copyright (C) 2006-2007 Kengo Ichiki <kichiki@users.sourceforge.net>
-% $Id: manual.tex,v 1.3 2007/04/20 02:50:58 kichiki Exp $
+% $Id: manual.tex,v 1.4 2008/07/11 04:19:42 kichiki Exp $
 
 \documentclass{book}
 
@@ -27,6 +27,21 @@
 currently covering Stokesian dynamics method
 and hopefully more general many-body problems in the future,
 released under the GNU General Public License (see Chapter \ref{chp:GPL}).
+
+
+This document describes overview of {\bf RYUON} and 
+some tutorials aiming for users.
+There are other documents:
+\begin{itemize}
+\item ``RYUON User's Manual'':
+  describing overview and some tutorials of {\bf RYUON} (for users).
+\item ``RYUON Reference Manual'':
+  describing numerical implementations 
+  of {\bf RYUON} (for developers).
+\item ``Theory of RYUON'':
+  a textbook describing theoretical background of {\bf RYUON}
+  (for researchers).
+\end{itemize}
 
 
 My scientific interest is on ``particles in a fluid'' 
@@ -263,13 +278,139 @@ and torque $\bm{T}_{\text{ext}}$ are given by the single vector, respectively.
 ** This should be extended soon. **
 
 
+The imposed flow $\bm{u}^{\infty}$ is given by three parameters 
+$\bm{U}^{\infty}$, $\bm{\Omega}^{\infty}$, and $\bm{E}^{\infty}$ as 
+\begin{equation}
+  \bm{u}^{\infty}(\bm{x})
+  =
+  \bm{U}^{\infty}
+  +
+  \bm{\Omega}^{\infty}\times\bm{x}
+  +
+  \bm{E}\cdot\bm{x}
+  .
+\end{equation}
+Therefore, this is a linear flow and the gradient tensor 
+$\bm{\nabla}\bm{u}^{\infty}$ is given by 
+\begin{equation}
+  \bm{\nabla}\bm{u}^{\infty}
+  =
+  \left[
+    \begin{array}{ccc}
+      E^{\infty}_{xx} & E^{\infty}_{xy}+\Omega^{\infty}_{z} & E^{\infty}_{xz}-\Omega^{\infty}_{y} \\
+      E^{\infty}_{xy}-\Omega^{\infty}_{z} & E^{\infty}_{yy} & E^{\infty}_{yz}+\Omega^{\infty}_{x} \\
+      E^{\infty}_{xz}+\Omega^{\infty}_{y} & E^{\infty}_{yz}-\Omega^{\infty}_{x} & 1-E^{\infty}_{xx}-E^{\infty}_{yy}
+    \end{array}
+  \right]
+  .
+\end{equation}
+The vector (or list) {\tt Oi} has three elements
+\begin{equation}
+  {\tt Oi}
+  =
+  \left(\Omega^{\infty}_{x}, \Omega^{\infty}_{y}, \Omega^{\infty}_{z}\right)
+  ,
+\end{equation}
+and the vector (or list) {\tt Ei} has five elements
+\begin{equation}
+  {\tt Ei}
+  =
+  \left(
+    E^{\infty}_{xx},
+    E^{\infty}_{xy},
+    E^{\infty}_{xz},
+    E^{\infty}_{yz},
+    E^{\infty}_{yy}
+  \right)
+  .
+\end{equation}
+Note the order of the element. 
+From these five elements, all nine elements of $\bm{E}^{\infty}$ is recovered, 
+using the properties 
+\begin{equation}
+  E^{\infty}_{ij} = E^{\infty}_{ji},\quad
+  E^{\infty}_{ii} = 0.
+\end{equation}
+For example, the simple shear flow in $xz$-plane 
+(velocity direction in $x$ and vorticity direction in $y$) is given by 
+\begin{equation}
+  \Omega^{\infty}_{y} = \frac{1}{2}\dot{\gamma},\quad
+  E^{\infty}_{xz} = \frac{1}{2}\dot{\gamma},
+\end{equation}
+and zero for others. See the gradient 
+\begin{equation}
+  \bm{\nabla}\bm{u}^{\infty}
+  =
+  \left[
+    \begin{array}{ccc}
+      0 & 0 & 0 \\
+      0 & 0 & 0 \\
+      \dot{\gamma} & 0 & 0
+    \end{array}
+  \right]
+  .
+\end{equation}
+This is given by parameters {\tt Oi} and {\tt Ei} as 
+\begin{eqnarray}
+  {\tt Oi}
+  &=&
+  \left(0, \dot{\gamma}/2, 0\right),\\
+  {\tt Ei}
+  &=&
+  \left(
+    0,
+    0,
+    \dot{\gamma}/2,
+    0,
+    0
+  \right)
+  .
+\end{eqnarray}
+The planar extension in $xz$-plane with the gradient 
+\begin{equation}
+  \bm{\nabla}\bm{u}^{\infty}
+  =
+  \left[
+    \begin{array}{ccc}
+      \dot{\epsilon} & 0 & 0 \\
+      0 & 0 & 0 \\
+      0 & 0 & -\dot{\epsilon}
+    \end{array}
+  \right]
+  ,
+\end{equation}
+is given by 
+\begin{equation}
+  E^{\infty}_{xx} = -E^{\infty}_{zz} = \dot{\epsilon},
+\end{equation}
+and zero for others. Note that 
+$E^{\infty}_{yy} = 1-E^{\infty}_{xx}-E^{\infty}_{zz} = 0$. 
+Therefore, it is given by 
+\begin{eqnarray}
+  {\tt Oi}
+  &=&
+  \left(0, 0, 0\right),\\
+  {\tt Ei}
+  &=&
+  \left(
+    \dot{\epsilon},
+    0,
+    0,
+    0,
+    0
+  \right)
+  .
+\end{eqnarray}
+
+
+
 \subsection{Parameter Script}
 Here's a sample initialization script:
 {\small
 \begin{verbatim}
 ; sample initialization file for stokes3
 ; SC lattice config of 8 particles in (5,5,5) box
-; $Id: manual.tex,v 1.3 2007/04/20 02:50:58 kichiki Exp $
+; $Id: manual.tex,v 1.4 2008/07/11 04:19:42 kichiki Exp $
 
 ;; output parameters
 (define outfile    "stokes3.SC8.nc") ; output filename
@@ -344,7 +485,7 @@ Here's a sample initialization script:
 \begin{verbatim}
 $ ./stokes3 --help
 Stokesian dynamics simulator
-$Id: manual.tex,v 1.3 2007/04/20 02:50:58 kichiki Exp $
+$Id: manual.tex,v 1.4 2008/07/11 04:19:42 kichiki Exp $
 
 USAGE
 ./stokes3 init-file
@@ -582,7 +723,7 @@ A sample configuration file ({\tt xi3.scm}) is given in the package:
 \begin{verbatim}
 ; sample set file for xi3
 ; SC lattice config of 8 particles in (5,5,5) box
-; $Id: manual.tex,v 1.3 2007/04/20 02:50:58 kichiki Exp $
+; $Id: manual.tex,v 1.4 2008/07/11 04:19:42 kichiki Exp $
 (define version    "F")     ; version. "F", "FT", or "FTS"
 (define flag-mat   #t)      ; #t => matrix scheme, #f => atimes scheme
 (define flag-notbl #f)      ; #t => no-table,      #f => with table
@@ -1833,8 +1974,7 @@ That is, for the mobility problem, it would be the natural form that
 \end{equation}
 Actually, Kim {\it et al}.\cite{KimMifflin1985} take this form
 rather than Eq. (\ref{eq:mob-fts}).
-But, here, we stick to the FTS form of Eq. (\ref{eq:mob-fts})
-as in Jeffrey {\it et al}.
+But, here, we stick to the FTS form of Eq. (\ref{eq:mob-fts}).
 Because the equation is linear,
 we can construct the FTE form from FTS as
 \begin{eqnarray}
@@ -1941,8 +2081,7 @@ obstacles or vessel to support other mobile particles.
 \cite{IchikiHayakawa1995}
 In those cases, it is not a simple mobility problem but
 the mixed problems, that is,
-the ``mobility and resistance'' problem.
-
+the ``mobility and resistance'' problem:
 \begin{equation}
   \left[
     \begin{array}{c}
@@ -1972,9 +2111,10 @@ the ``mobility and resistance'' problem.
   \right]
   .
 \end{equation}
-
-
-
+Here, we denote the mobile and fixed particles by
+the superscripts $m$ and $f$, respectively.
+After sorting by the known and unknown variables,
+we have
 \begin{equation}
   \bm{B}
   \cdot
@@ -2042,7 +2182,7 @@ by $\bm{M}$'s.
   \right]
   .
 \end{equation}
-Because the matrices are unknown variables,
+Because the matrices are known variables,
 the generalized form of linear set of equations (\ref{eq:atimes-gen})
 can be solved by the standard iterative method
 by giving the procedure to calculate $\bm{A}\cdot\bm{x}$
@@ -2070,7 +2210,7 @@ One of the innovation done by Stokesian dynamics
 \cite{BradyBossis1988,DurlofskyEtal1987,BradyEtal1988}
 is the model of lubrication into the system.
 
-\begin{eqnarray}
+\begin{equation}
   \bm{R}
   \simeq
   \left(
@@ -2080,7 +2220,7 @@ is the model of lubrication into the system.
   \bm{L}
   .
   \label{eq:res-lub}
-\end{eqnarray}
+\end{equation}
 
 In a straightforward implementation of this lubrication correction,
 even in F version, the mobility problem needs twice matrix-inversions.
@@ -2175,7 +2315,7 @@ we can extend the FTS formulation to higher orders.
 
 \section{Fast Multipole Expansion}
 Fast Multiple Expansion
-\cite{greengard,greengard1987}.
+\cite{greengard,GreengardRokhlin1987}.
 
 
 
