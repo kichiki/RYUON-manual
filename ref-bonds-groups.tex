@@ -1,0 +1,639 @@
+% bonds-groups : RYUON Reference Manual
+% Copyright (C) 2008 Kengo Ichiki <kichiki@users.sourceforge.net>
+% $Id: ref-bonds-groups.tex,v 1.1 2008/07/11 04:16:57 kichiki Exp $
+
+\section{General Configurations}
+\label{sec:ref-bonds-groups-general-configurations}
+This section describes the code {\tt bonds-groups.c} 
+handling bonds and connector vectors. 
+The following is an excerption from the header file; 
+{\footnotesize
+\begin{verbatim}
+struct BONDS {
+  int n; // number of bonds
+
+  <-- snip -->
+
+  int *ia;
+  // ia[n] : particle index of one end of the bond
+  int *ib;
+  // ib[n] : particle index of the other end of the bond
+};
+
+struct BONDS_GROUP {
+  int np; // number of particles in this group
+  int *ip;
+  // ip[np] : particle index of the group particles
+  int *bonds;
+  // bonds[np-1] : independent bond list
+};
+
+struct BONDS_GROUPS {
+  int n;                      // number of groups
+  struct BONDS_GROUP **group; // grp[ng]
+};
+\end{verbatim}
+}
+(NOTE: this is still in development 
+and not imported into {\tt libstokes} yet.)
+
+
+
+\subsection{Backgroud}
+Here, we discuss the generalization of the chain structure 
+beyond the simple straight chains. 
+For this purpose, we introduce particle indices 
+$(\alpha_{i}, \beta_{i})$ for connection (bond) $i$. 
+Because the connection is completely characterized 
+by the link between the two particles, 
+the list of particle-pairs $(\alpha_{i}, \beta_{i})$ 
+is enough for arbitrary structure. 
+
+Consider a system with $N$ particles. 
+The positions of particles are given by 
+$\{\bm{x}_{\mu}\}$ for $\mu = 0, \cdots, N-1$, 
+where $N$ is the total number of particles in the system. 
+Let $N_{b}$ be the number of bonds (connections) in the system. 
+Each bond is characterized by the pair of particles $(\alpha_{i}, \beta_{i})$, 
+where the bond index $i$ runs from $0$ to $N_{b}-1$. 
+We also define the ``group'' 
+which is a set containing particles connecting each other. 
+Particles without connection belong to different groups. 
+We denote the number of groups in the system by $N_{g}$. 
+
+
+Contrast to the simple straight chain configuration, 
+one extra care needs to be taken for general configurations. 
+That is, for a single group of particles which are all connecting each other, 
+sometimes the number of bonds (connections) becomes larger than 
+the degrees of freedom of the group except for the center-of-mass, $N-1$. 
+For straight chain configurations, the number of bonds are always $N-1$. 
+This fact means that the extra bonds are redundant and 
+the connector vectors for the redundant bonds can be 
+derived from those for the independent bonds. 
+See an example in Eq. (\ref{eq:ref-bonds-groups-redundant-connector-for-loop}) later.
+
+The crucial point is forming the list of independent bonds. 
+We denote the list by ${\tt bonds}[N-1]$. 
+Detailed discussions for the construction of the list 
+will be given in \S \ref{sec:ref-bonds-groups-independent-bond-list-algorithm}. 
+
+
+
+Let us define the connector vector $\bm{Q}_{i}$ for the bond $i$ as 
+\begin{equation}
+  \bm{Q}_{i}
+  =
+  \bm{x}_{\alpha_{i}} - \bm{x}_{\beta_{i}}
+  .
+\end{equation}
+Furthermore, we define the generalized (or canonical?) connector vector 
+$\overline{\bm{Q}}_{i}$ where the index $i$ runs from $0$ to $N-1$. 
+For a system with single group with $N$ particles, 
+\begin{equation}
+  \overline{\bm{Q}}_{i}
+  =
+  \bm{x}_{\alpha_{{\tt bonds}[i]}}
+  -
+  \bm{x}_{\beta_{{\tt bonds}[i]}}
+  ,
+\end{equation}
+for $i = 0, \cdots, N-2$, and 
+\begin{equation}
+  \overline{\bm{Q}}_{N-1}
+  =
+  \bm{x}_{\text{COM}}
+  :=
+  \frac{1}{N}
+  \sum_{\mu=0}^{N-1}
+  \bm{x}_{\mu}
+  ,
+\end{equation}
+where ${\tt bonds}[i]$ is the $i$th bond index 
+of the independent bonds. 
+Note that the number of elements of all connectors 
+$\{\overline{\bm{Q}}_{i}\}$ 
+is equal to that of all position vectors $\{\bm{x}_{\mu}\}$ 
+and they have one-to-one correspondence. 
+By introducing the transform matrix by $\overline{\mathsf{B}}$ 
+whose dimension is $N\times N$, we can write 
+\begin{equation}
+  \overline{\bm{Q}}_{i}
+  =
+  \sum_{\mu=0}^{N-1}
+  \overline{\mathsf{B}}_{i,\mu}
+  \bm{x}_{\mu}
+  .
+  \label{eq:ref-bonds-groups-conversion-particle-wise}
+\end{equation}
+The details about the transformation will be discussed later 
+in \S \ref{sec:ref-bonds-groups-conversion-pos-conn}. 
+
+
+
+\subsection{Examples}
+Before proceeding, we see several examples.
+
+\subsubsection{Straight Configuration}
+\begin{figure}
+  \centering
+  \includegraphics[width=7cm]{figures/ref-bonds-groups-straight2}
+  \caption{
+    Two straight chains with $N=7$.
+  }
+  \label{fig:ref-bonds-groups-straight2}
+\end{figure}
+\begin{table}[!htb]
+  \begin{tabular}{ccc}
+    bond index $i$ & $\alpha_{i}$ & $\beta_{i}$ \\
+    \hline
+    0 & 0 & 1 \\
+    1 & 1 & 2 \\
+    2 & 3 & 4 \\
+    3 & 4 & 5 \\
+    4 & 5 & 6
+  \end{tabular}
+  \caption{%
+    Connection table for two straight chains 
+    in Fig. \ref{fig:ref-bonds-groups-straight2}.
+  }
+  \label{tab:ref-bonds-groups-straight2}
+\end{table}
+Figure \ref{fig:ref-bonds-groups-straight2} shows an example of the system 
+with $N=7$ particles forming two straight chains, that is, 
+the number of groups is $N_{g} = 2$ and 
+the number of bonds is $N_{b} = 5$. 
+The connection table is given by Table \ref{tab:ref-bonds-groups-straight2}. 
+
+\subsubsection{Star Configuration}
+\begin{figure}
+  \centering
+  \includegraphics[width=5cm]{figures/ref-bonds-groups-star}
+  \caption{
+    A star configuration with $N=5$.
+  }
+  \label{fig:ref-bonds-groups-star}
+\end{figure}
+\begin{table}[!htb]
+  \begin{tabular}{ccc}
+    bond index $i$ & $\alpha_{i}$ & $\beta_{i}$ \\
+    \hline
+    0 & 0 & 1 \\
+    1 & 0 & 2 \\
+    2 & 0 & 3 \\
+    3 & 0 & 4
+  \end{tabular}
+  \caption{%
+    Connection table for the star configuration 
+    in Fig. \ref{fig:ref-bonds-groups-star}.
+  }
+  \label{tab:ref-bonds-groups-star}
+\end{table}
+Figure \ref{fig:ref-bonds-groups-star} shows another example 
+forming a star configuration with $N=5$ and $N_{b} = 4$, 
+that is, all the bonds are independent. 
+The connection table is given by Table \ref{tab:ref-bonds-groups-star}. 
+
+
+
+\subsubsection{Loop Configuration}
+\begin{figure}
+  \centering
+  \includegraphics[width=5cm]{figures/ref-bonds-groups-loop}
+  \caption{
+    A loop configuration with $N=6$.
+  }
+  \label{fig:ref-bonds-groups-loop}
+\end{figure}
+\begin{table}[!htb]
+  \begin{tabular}{ccc|cccc}
+    \multicolumn{3}{c|}{before} &
+    \multicolumn{4}{c}{after sorting} \\
+    $i$ & $\alpha_{i}$ & $\beta_{i}$ & 
+    $i$ & $\alpha_{i}$ & $\beta_{i}$ & \\
+    \hline
+    0 & 0 & 1 & 0 & 0 & 1 & \\
+    1 & 1 & 2 & 1 & 0 & 5 & redundant\\
+    2 & 2 & 3 & 2 & 1 & 2 & \\
+    3 & 3 & 4 & 3 & 2 & 3 & \\
+    4 & 4 & 5 & 4 & 3 & 4 & \\
+    5 & 5 & 0 & 5 & 4 & 5 & 
+  \end{tabular}
+  \caption{%
+    Connection table for the star configuration 
+    in Fig. \ref{fig:ref-bonds-groups-loop}.
+    The Left-half is the table given by Fig. \ref{fig:ref-bonds-groups-loop} 
+    and the right-half is after sorting by particle indices. 
+  }
+  \label{tab:ref-bonds-groups-loop}
+\end{table}
+Figure \ref{fig:ref-bonds-groups-loop} shows a loop configuration with $N=6$ particles. 
+It is seen that the number of bonds $N_{b}$ is equal to $N$. 
+This means that one of the bonds is redundant, that is, 
+it can be derived from the other connector vectors. 
+It is obvious that the connector vector for the 5th bond 
+in Fig. \ref{fig:ref-bonds-groups-loop}, for example, can be obtained from the rest as 
+\begin{equation}
+  \bm{Q}_{5}
+  :=
+  \bm{x}_{5} - \bm{x}_{0}
+  =
+  -\sum_{i=0}^{4}\left(\bm{x}_{i+1} - \bm{x}_{i}\right)
+  =
+  -\sum_{i=0}^{4}\bm{Q}_{i}
+  .
+  \label{eq:ref-bonds-groups-redundant-connector-for-loop}
+\end{equation}
+Therefore, the number of independent connector vectors is $N-1$, as expected.
+
+After sorting the connection table by the particle indices, 
+we have the table shown in the right-half in Table \ref{tab:ref-bonds-groups-loop}. 
+We drop the redundant bond $i=1$ and form the independent 
+bond list {\tt bonds[]} as 
+\begin{equation}
+  {\tt bonds}[N-1] = \{0, 2, 3, 4, 5\}.
+\end{equation}
+
+
+\begin{figure}
+  \centering
+  \includegraphics[width=5cm]{figures/ref-bonds-groups-loop-connected}
+  \caption{
+    A loop configuration with extra connections from particle 0.
+  }
+  \label{fig:ref-bonds-groups-loop-connected}
+\end{figure}
+\begin{table}[!htb]
+  \begin{tabular}{ccc|cccc}
+    \multicolumn{3}{c|}{before} &
+    \multicolumn{4}{c}{after sorting} \\
+    $i$ & $\alpha_{i}$ & $\beta_{i}$ & 
+    $i$ & $\alpha_{i}$ & $\beta_{i}$ & \\
+    \hline
+    0 & 0 & 1 & 0 & 0 & 1 & \\
+    1 & 1 & 2 & 1 & 0 & 2 & redundant\\
+    2 & 2 & 3 & 2 & 0 & 3 & redundant\\
+    3 & 3 & 4 & 3 & 0 & 4 & redundant\\
+    4 & 4 & 5 & 4 & 0 & 5 & redundant\\
+    5 & 5 & 0 & 5 & 1 & 2 & \\
+    6 & 0 & 2 & 6 & 2 & 3 & \\
+    7 & 0 & 3 & 7 & 3 & 4 & \\
+    8 & 0 & 4 & 8 & 4 & 5 & 
+  \end{tabular}
+  \caption{%
+    Connection table for the star configuration
+    in Fig. \ref{fig:ref-bonds-groups-loop-connected}.
+    The Left-half is the table given by 
+    Fig. \ref{fig:ref-bonds-groups-loop-connected} 
+    and the right-half is after sorting by particle indices. 
+  }
+  \label{tab:ref-bonds-groups-loop-connected}
+\end{table}
+Figure \ref{fig:ref-bonds-groups-loop-connected} shows a loop configuration 
+with extra connections with particle 0 to all the others. 
+In this case, the number of bonds $N_{b}$ exceeds $N-1$ by 4 
+(because we add three more connections into the looped configuration 
+in Fig. \ref{fig:ref-bonds-groups-loop} which already has one redundant bond). 
+
+After sorting the connection table by the particle indices, 
+we have the table shown in the right-half in Table \ref{tab:ref-bonds-groups-loop-connected}. 
+We drop the redundant bonds $i=1, 2, 3, 4$ and form the independent 
+bond list {\tt bonds[]} as 
+\begin{equation}
+  {\tt bonds}[N-1] = \{0, 5, 6, 7, 8\}.
+\end{equation}
+
+
+
+\begin{figure}
+  \centering
+  \includegraphics[width=5cm]{figures/ref-bonds-groups-loop-connected2}
+  \caption{
+    A loop configuration with extra connections skipping one particle.
+  }
+  \label{fig:ref-bonds-groups-loop-connected2}
+\end{figure}
+\begin{table}[!htb]
+  \begin{tabular}{ccc|cccc}
+    \multicolumn{3}{c|}{before} &
+    \multicolumn{4}{c}{after sorting} \\
+    $i$ & $\alpha_{i}$ & $\beta_{i}$ & 
+    $i$ & $\alpha_{i}$ & $\beta_{i}$ & \\
+    \hline
+    0  & 0 & 1 & 0  & 0 & 1 & \\
+    1  & 1 & 2 & 1  & 0 & 2 & redundant\\
+    2  & 2 & 3 & 2  & 0 & 4 & redundant\\
+    3  & 3 & 4 & 3  & 0 & 5 & redundant\\
+    4  & 4 & 5 & 4  & 1 & 2 & \\
+    5  & 5 & 0 & 5  & 1 & 3 & redundant\\
+    6  & 0 & 2 & 6  & 1 & 5 & redundant\\
+    7  & 1 & 3 & 7  & 2 & 3 & \\
+    8  & 2 & 4 & 8  & 2 & 4 & redundant\\
+    9  & 3 & 5 & 9  & 3 & 4 & \\
+    10 & 4 & 0 & 10 & 3 & 5 & redundant\\
+    11 & 5 & 1 & 11 & 4 & 5 & 
+  \end{tabular}
+  \caption{%
+    Connection table for the star configuration 
+    in Fig. \ref{fig:ref-bonds-groups-loop-connected2}.
+    The Left-half is the table given by 
+    Fig. \ref{fig:ref-bonds-groups-loop-connected2} 
+    and the right-half is after sorting by particle indices. 
+  }
+  \label{tab:ref-bonds-groups-loop-connected2}
+\end{table}
+Figure \ref{fig:ref-bonds-groups-loop-connected2} 
+shows another loop configuration 
+with 6 extra connections skipping one particle. 
+In this case, the number of bonds $N_{b}$ exceeds $N-1$ by 7. 
+
+After sorting the connection table by the particle indices, 
+we have the table shown in the right-half in 
+Table \ref{tab:ref-bonds-groups-loop-connected2}. 
+We drop the redundant bonds shown in 
+Table \ref{tab:ref-bonds-groups-loop-connected2}, 
+bond list {\tt bonds[]} as 
+\begin{equation}
+  {\tt bonds}[N-1] = \{0, 4, 7, 9, 11\}.
+\end{equation}
+
+
+\begin{figure}
+  \centering
+  \includegraphics[width=8cm]{figures/ref-bonds-groups-loop-connected2-straight}
+  \caption{
+    A loop configuration with extra connections skipping one particle 
+    with $N$ particles in a straight form. 
+  }
+  \label{fig:ref-bonds-groups-loop-connected2-straight}
+\end{figure}
+For general $N$, the the independent bond list 
+in this type of configuration becomes 
+\begin{equation}
+  {\tt bonds}[N-1] = \{0, 4, 7, 9, \cdots, 2i+3, \cdots, 2(N-2)+3\},
+\end{equation}
+where $2i+3$ is the $i$th element (counting from 0) 
+and $2(N-2)+3$ is the last ($N-2$)-th element. 
+The difference between the 0th and first elements is 4, 
+and that between the first and second is 3. 
+Beyond this point, the differences are 2. 
+To see this, let us see the configuration modified in a straight form 
+in Fig. \ref{fig:ref-bonds-groups-loop-connected2-straight}. 
+
+For the particle 0, there are 4 bonds and three of them are redundant. 
+Therefore, in the sorted form, the second independent bond 
+is the forth from the first independent bond. 
+For the next particle 1, one of the 4 bonds is connecting to the particle 0 
+which is already taken into account in the sorted form. 
+Among the rest three, two are redundant, so that the third independent bond 
+is the third from the second. 
+For the next particle 2, two of the 4 bonds are connecting 
+either particle 0 or 1. Only one of the rest two bonds is redundant 
+and the fourth independent bond is the second  from the third. 
+For the particles later, the situation is the same for 
+the particle 2, so that the difference between the independent bonds are 2. 
+
+
+\subsection{Algorithm}
+\label{sec:ref-bonds-groups-independent-bond-list-algorithm}
+Let us see the algorithm forming the independent bond list {\tt bonds}[] 
+out of the set of particle indices $(\alpha_{i}, \beta_{i})$. 
+This is implemented in the routine {\tt BONDS\_GROUPS\_make(b, np)}, 
+where {\tt b} is a pointer of the struct {\tt BONDS} 
+and {\tt np} is $N$, the number of particles in the system. 
+The routine returns the struct {\tt BONDS\_GROUPS}. 
+
+
+At the very beginning, we sort the list of particle indices 
+$(\alpha_{i}, \beta_{i})$ as 
+\begin{equation}
+  \alpha_{i} < \beta_{i},
+  \quad\text{ and }\quad
+  \alpha_{i} < \alpha_{i+1}.
+  \label{eq:ref-bonds-groups-BONDS-sort-alpha-beta}
+\end{equation}
+This is done by the routine {\tt BONDS\_sort\_by\_ia(b)}.
+
+The first task is to decompose the particles into each group. 
+This is done by the following three steps:
+\begin{enumerate}
+\item count the number of bonds for each particle (stored in {\tt nb[np]}),
+\item obtain the bond indices for each particle (stored in {\tt bond[np][nb]}),
+\item give independent group id for each particle (stored in {\tt gid[np]}).
+\end{enumerate}
+In {\tt gid[np]}, 0 is for the particles which is independent 
+and has no bond (that is, ${\tt nb}[i]$ is 0 for the particle $i$). 
+
+The third step is the crucial one, where the redundant bonds are also detected. 
+Let us focus on the step. The core part of this is implemented in 
+the routine {\tt BONDS\_GROUPS\_gid\_check()}. 
+This routine is looking for the particles connected to 
+the particle ``{\tt i}'' whose group id is ``{\tt ig}.''
+
+First, a bond on the particle {\tt i} is picked. 
+The bond index is {\tt ib}. 
+Either $\alpha_{\tt ib}$ or $\alpha_{\tt ib}$ is equal to {\tt i} 
+and the other particle (connecting to {\tt i}) is taken as {\tt k}. 
+The group id {\tt gid[k]} would be either one of the three cases:
+\begin{enumerate}
+\item {\tt gid[k] == -1},
+  where the particle {\tt k} is not assigned yet,
+\item {\tt gid[k] == ig},
+  where the particle {\tt k} is already assigned to the same group {\tt ig}, 
+\item otherwise,
+  the particle {\tt k} belongs to another group ($\neq{\tt ig}$).
+\end{enumerate}
+For the first case, we just add the particle {\tt k} to the group {\tt ig}, 
+that is, define as {\tt gid[k] = ig}. We also need to check 
+the connection from the particle {\tt k} by calling 
+{\tt BONDS\_GROUPS\_gid\_check()} recursively. 
+
+For the third case, we need to merge the two groups into one. 
+In the present code, we change the latter group belonging to {\tt k} 
+to the group {\tt ig} belonging to the particle {\tt i}. 
+This is done by the routie {\tt BONDS\_GROUPS\_gid\_flip}. 
+In this case, we don't need to check the connection for {\tt k} further, 
+because {\tt k} has been checked (and assigned to some group). 
+
+The second case is the important one. 
+This means that the bond between the particles {\tt i} and {\tt k} 
+forms a loop inside the same group {\tt ig}. 
+We identify the bond as redundant. 
+The redundant bonds are stored in the struct {\tt loop\_bonds} 
+(which is defined only for the internal use). 
+In this case, also, we don't need to check the connection. 
+
+
+Therefore, after the third step to define {\tt gid[np]}, 
+we also have the redundant bond list in the struct {\tt loop\_bonds *lb}. 
+With these results, we are able to construct 
+the struct {\tt BONDS\_GROUP} for each group 
+which has the following elements
+\begin{itemize}
+\item {\tt np}, the number of particles in the group,
+\item {\tt ip[np]}, the particle indices of the group particles,
+\item {\tt bonds[np-1]}, the independent bond list for the group.
+\end{itemize}
+Note that, for the isolated particles ({\tt np = 1}), 
+the independent bond list {\tt bonds} is set by NULL. 
+The struct {\tt BONDS\_GROUPS} is a list containing 
+numbers of struct {\tt BONDS\_GROUP} in the system. 
+
+This algorithm forming the independent bond list {\tt bonds} 
+has recursive call and the cost would be $O(N\ln N)$. 
+But in the simulation, this is called only once at the beginning, 
+so that it doesn't matter. 
+
+
+\subsection{Conversions between Positions and Connectors}
+\label{sec:ref-bonds-groups-conversion-pos-conn}
+In terms of the struct {\tt BONDS\_GROUP} 
+which has $({\tt np}, {\tt ip[np]}, {\tt bonds[np-1]})$, 
+we can construct the conversions 
+$\{\bm{x}_{\mu}\}\mapsto\{\overline{\bm{Q}}_{i}\}$ 
+and $\{\overline{\bm{Q}}_{i}\}\mapsto\{\bm{x}_{\mu}\}$. 
+
+First, we see the system with a single group. 
+Because we only take the independent bonds, 
+the bond index $i$ runs from 0 to $N-2$ 
+(where the number of independent bonds is $N-1$), 
+while the particle index $\mu$ runs from 0 to $N-1$ 
+(where the number of particles is $N$). 
+Adding the $(N-1)$-th element of the connector vector 
+$\{\overline{\bm{Q}}_{i}\}$ by the center of mass $\bm{x}_{\text{COM}}$ as 
+\begin{equation}
+  \overline{\bm{Q}}_{N-1}
+  :=
+  \bm{x}_{\text{COM}}
+  =
+  \frac{1}{N}
+  \sum_{i=0}^{N-1}
+  \bm{x}_{{\tt ip}[i]}
+  ,
+  \label{eq:ref-bonds-groups-last-connector-vector-COM}
+\end{equation}
+(therefore, precisely speaking, $\bm{x}_{\text{COM}}$ is not 
+the center of \textit{mass} though), 
+the numbers of elements of both $\{\bm{x}_{\mu}\}$ 
+and $\{\overline{\bm{Q}}_{i}\}$ become the same. 
+
+The transformations between them can be constructed as follows. 
+By definition of connector vectors, 
+\begin{equation}
+  \overline{\bm{Q}}_{i}
+  =
+  \bm{x}_{\alpha_{{\tt bonds}[i]}} - \bm{x}_{\beta_{{\tt bonds}[i]}},
+\end{equation}
+for $i = 0, \cdots, N-2$. 
+The last element of the connector vector $\overline{\bm{Q}}_{N-1}$ is given by 
+Eq. (\ref{eq:ref-bonds-groups-last-connector-vector-COM}). 
+This is implemented in the routine {\tt BONDS\_pos\_to\_conn\_1}. 
+Note that, for the isolated particle, 
+we define the (generalized) connector vector by 
+the position itself as 
+\begin{equation}
+  \overline{\bm{Q}}_{0} = \bm{x}_{0}.
+\end{equation}
+As we see, the relation is linear and the transformation can be 
+expressed by the matrix as 
+\begin{equation}
+  \overline{\bm{Q}}
+  =
+  \mathscr{B}\cdot\bm{x},
+\end{equation}
+where $\overline{\bm{Q}}$ and $\bm{x}$ are the generalized vector 
+with $3N$ dimension for $\{\overline{\bm{Q}}_{i}\}$ and $\{\bm{x}_{\mu}\}$, 
+respectively, and $\mathscr{B}$ is 
+$3N\times 3N$ matrix based on the $N\times N$ matrix $\overline{\mathsf{B}}$ 
+in Eq. (\ref{eq:ref-bonds-groups-conversion-particle-wise}). 
+
+
+The opposite transformation 
+from $\overline{\bm{Q}}_{i}$ to $\bm{x}_{\mu}$ can be obtained 
+from the inversion matrix $\mathscr{B}^{-1}$. 
+Alternatively (and directly), 
+we can calculate the position vectors from the connector vectors 
+(and the center-of-mass vector) as follows:
+For the isolated particle, 
+\begin{equation}
+  \bm{x}_{0} = \overline{\bm{Q}}_{0}.
+\end{equation}
+For the group with $N(> 1)$ particles, 
+we take the two steps: 
+\begin{enumerate}
+\item at the first step, $\bm{x}_{\mu}$ is formed
+  with respect to the origin at the $\bm{x}_{\alpha_{{\tt bonds}[0]}}$,
+\item then, adjust the origin 
+  with respect to $\bm{x}_{\text{COM}} = \overline{\bm{Q}}_{N-1}$. 
+\end{enumerate}
+
+At the first step, 
+therefore, we define 
+\begin{equation}
+  \bm{x}_{\alpha_{{\tt bonds}[0]}} = \bm{0},
+\end{equation}
+as an initial condition. 
+After it, for the independent bond $i$ from 0 to $N-2$, 
+\begin{equation}
+  \bm{x}_{\beta_{{\tt bonds}[i]}}
+  =
+  \bm{x}_{\alpha_{{\tt bonds}[i]}}
+  -
+  \overline{\bm{Q}}_{i}
+  .
+\end{equation}
+To make this procedure work, 
+we should assure that 
+$\bm{x}_{\alpha_{{\tt bonds}[i]}}$ has been defined 
+by the $(i-1)$-th step. 
+This condition is satisfied from the fact that 
+\begin{itemize}
+\item {\tt bonds[]} don't have redundant bonds,
+\item the number of the independent bond is {\tt np-1}, 
+\item the particle indices $\alpha_{i}$ and $\beta_{i}$ are 
+  sorted as in Eq. (\ref{eq:ref-bonds-groups-BONDS-sort-alpha-beta}),
+\item {\tt bonds[]} itself is sorted as 
+  ${\tt bonds}[i] < {\tt bonds}[i+1]$.
+\end{itemize}
+
+After the first step, 
+we calculate $\widetilde{\bm{x}}_{\text{COM}}$ as 
+\begin{equation}
+  \widetilde{\bm{x}}_{\text{COM}}
+  =
+  \frac{1}{N}
+  \sum_{i=0}^{N-1}
+  \bm{x}_{{\tt ip}[i]}
+  \ 
+  \left(
+    =
+    \frac{1}{N}
+    \sum_{i=0}^{N-2}
+    \bm{x}_{\beta_{{\tt bonds}[i]}}
+  \right)
+  ,
+\end{equation}
+and adjust the center of mass to $\bm{x}_{\text{COM}}$ as 
+\begin{equation}
+  \bm{x}_{{\tt ip}[i]}
+  =
+  \bm{x}_{{\tt ip}[i]}
+  -
+  \widetilde{\bm{x}}_{\text{COM}}
+  +
+  \bm{x}_{\text{COM}}
+  ,
+\end{equation}
+for $i = 0, \cdots, N-1$.
+
+It should be noted that 
+the calculation of this rather tedeous procedure is $O(N)$, 
+while the inversion $\mathsf{A}^{-1}$ usually costs $O(N^3)$. 
+
+For the system containing many groups at the same time, 
+we can apply the above procedure for each group separately, 
+and the overall calculation is still $O(N)$. 
+This system-wide transformations are implimented in the routines 
+{\tt BONDS\_pos\_to\_conn} and {\tt BONDS\_conn\_to\_pos}. 
+
+
