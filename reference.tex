@@ -1,0 +1,192 @@
+% RYUON Reference Manual
+% Copyright (C) 2007-2008 Kengo Ichiki <kichiki@users.sourceforge.net>
+% $Id: reference.tex,v 1.1 2008/07/11 04:18:35 kichiki Exp $
+
+%\documentclass{book}
+\documentclass[twocolumn]{book}
+
+\usepackage[dvips]{graphicx}
+\usepackage{amsmath}
+% some trick to prevent "Too many math alphabets" error for "bm" package
+\newcommand\bmmax{0}
+\usepackage{bm}
+\usepackage{times}
+\usepackage{txfonts}
+\usepackage{mathrsfs}
+
+\begin{document}
+
+\title{RYUON Reference Manual}
+\author{Kengo Ichiki
+ \thanks{e-mail: kichiki@users.sourceforge.net}}
+\date{\today}
+
+\maketitle
+
+\tableofcontents
+
+\chapter{Introduction}
+This document describes details of some numerical implementations 
+of {\bf RYUON} (aiming for developers).
+
+
+There are other documents:
+\begin{itemize}
+\item ``RYUON User's Manual'':
+  describing overview and some tutorials of {\bf RYUON} (for users).
+\item ``RYUON Reference Manual'':
+  describing numerical implementations 
+  of {\bf RYUON} (for developers).
+\item ``Theory of RYUON'':
+  a textbook describing theoretical background of {\bf RYUON}
+  (for researchers).
+\end{itemize}
+
+
+\chapter{General Mobility Problem -- ${\bf A}\cdot\bm{x}$ Calculation}
+\label{chp:atimes}
+
+
+\chapter{Mobility Problem}
+\label{chp:mob}
+
+
+\chapter{Resistance Problem}
+\label{chp:res}
+
+
+\chapter{Mixed Problem}
+\label{chp:mix}
+
+
+\chapter{Lubrication}
+\label{chp:lub}
+
+\section{Top Layer}
+The lubrication forces for $N$ (all) particles 
+The lubrication forces for $N$ (all) particles 
+\begin{equation}
+  \bm{F}
+  =
+  \bm{L}
+  \cdot
+  \bm{U}
+  ,
+\end{equation}
+is calculated by
+\begin{equation}
+  {\tt calc\_lub\_\langle d\rangle\langle ver\rangle\ (sys, u, f)}
+  ,
+\end{equation}
+which is called by the top-level function
+\begin{equation}
+  {\tt solve\_\langle type\rangle\_lub\_\langle d\rangle\langle ver\rangle\ ()}
+  ,
+\end{equation}
+for mobility, resistance, and mixed problems ({\tt type}) 
+in 2- and 3-dimensions ({\tt d}) 
+with F, FT, and FTS versions ({\tt ver}).
+
+The function ${\tt calc\_lub\_\langle d\rangle\langle ver\rangle\ ()}$ 
+has particle-loops.
+Under the periodic boundary condition, particles in the image cells 
+are also taken into account.
+
+In the loop for particle-particle pairs, 
+either 
+\begin{equation}
+  {\tt calc\_lub\_\langle ver\rangle\_2b()}
+\end{equation}
+for monodisperse system or
+\begin{equation}
+  {\tt calc\_lub\_\langle ver\rangle\_2b\_poly()}
+\end{equation}
+for polydisperse system is called.
+
+
+\section{Polydisperse Systems}
+All information necessary to calculate the interactions for 
+polydisperse systems are stored in the struct {\tt twobody\_f} 
+for each pair characterized by the size ratio 
+$\lambda := a_2 / a_1$. 
+
+\begin{itemize}
+\item {\tt calc\_lub\_[f,ft,fts]\_2b\_poly()} in f.c, ft.c, fts.c:\\
+  calculate lubrication forces (and torques and stresslets) by 
+  \begin{equation}
+    \left[
+      \begin{array}{c}
+        \bm{F}^{(1)} \\ \bm{F}^{(2)}
+      \end{array}
+    \right]
+    =
+    \bm{L}_{\text{2B}}
+    \cdot
+    \left[
+      \begin{array}{c}
+        \bm{U}^{(1)} \\ \bm{U}^{(2)}
+      \end{array}
+    \right]
+    ,
+  \end{equation}
+  for particles {\tt i1} and {\tt i2}
+  at {\tt x1[3]} and  {\tt x2[3]}, respectively.
+  This calculation is done in the SD scaling, 
+  achieved by the function 
+  {\tt scalars\_res\_poly\_scale\_SD()}.
+  The function 
+  {\tt scalars\_lub\_poly\_full()} is called 
+  to obtain the scalar functions of the lubrication matrix.
+\item {\tt scalars\_lub\_poly\_full()} in minv-poly.c:\\
+  calculate scalar functions of lubrication matrix defined by 
+  \begin{equation}
+    \bm{L}_{\text{2B}}
+    :=
+    \bm{R}^{\text{exact}}_{\text{2B}}
+    -
+    \left(
+      \bm{M}^{\infty}_{\text{2B}}
+    \right)^{-1}
+    .
+  \end{equation}
+  In this routine, the functions 
+  {\tt twobody\_scalars\_res()} and 
+  {\tt scalars\_minv\_[f,ft,fts]\_poly()} are called.
+  The former is called twice to obtain scalar functions 
+  for $12$- and $21$-pairs in $\bm{R}^{\text{exact}}_{\text{2B}}$, 
+  and the latter is once for $(\bm{M}^{\infty}_{\text{2B}})^{-1}$.
+  The scalar functions are in the dimensional form.
+\item {\tt twobody\_scalars\_res()} in twobody.c:\\
+  This routine handles whether lubrication form is used 
+  for the exact solution (to improve the convergence), and 
+  the scaling of the result scalar functions.
+\end{itemize}
+
+
+\chapter{Periodic Boundary Condition}
+\label{chp:ewald}
+
+
+
+\chapter{Brownian Dynamics}
+
+
+
+\chapter{Connections and Bond Interactions}
+\label{chp:bonds}
+
+\input{ref-bonds-groups.tex}
+
+
+
+%\bibliographystyle{abbrv}
+%\bibliographystyle{alpha}
+%\bibliographystyle{apalike}
+%\bibliographystyle{ieeetr}
+%\bibliographystyle{plain}
+\bibliographystyle{siam}
+%\bibliographystyle{unsrt}
+%\bibliographystyle{prsty}
+\bibliography{mine,stokes,fmm,opensource}
+
+\end{document}
