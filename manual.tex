@@ -1,8 +1,9 @@
 % RYUON MANUAL
-% Copyright (C) 2006-2007 Kengo Ichiki <kichiki@users.sourceforge.net>
-% $Id: manual.tex,v 1.4 2008/07/11 04:19:42 kichiki Exp $
+% Copyright (C) 2006-2008 Kengo Ichiki <kichiki@users.sourceforge.net>
+% $Id: manual.tex,v 1.5 2008/10/12 20:16:53 kichiki Exp $
 
 \documentclass{book}
+%\documentclass[twocolumn]{book}
 
 \usepackage[dvips]{graphicx}
 \usepackage{amsmath}
@@ -106,151 +107,48 @@ Currently, {\bf RYUON} contains the following codes and data:
 \section{{\tt stokes3}:
   Stokesian Dynamics Simulator}
 {\tt stokes3} in {\bf RYUON-stokes} package is a general-purpose 
-Stokesian dynamics simulator.
+Stokesian-Brownian dynamics simulator.
 This simulator covers all range of the implementations in {\tt libstokes}:
 \begin{itemize}
-\item F, FT, and FTS versions
+\item hydrodynamic interactions with F, FT, and FTS versions
 \item periodic and non-periodic boundary conditions
 \item monodisperse and polydisperse systems
+\item no-slip and Navier slip boundary conditions on the particle surface
 \item with and without lubrication correction
 \item with and without fixed particles
 \item particles as well as chain(s) of particles connected by spring
+\item non-Brownian and Brownian systems
 \end{itemize}
 Because it is the simulator for dynamics,
 only mobility problem (or mixed problem with fixed particles) are used.
 
-Two dynamics for massless and massive particles are implemented.
-
-\subsection{Dynamics}
-\subsubsection{Massless Particles}
-Colloidal particles are small and the inertial effect of the particle 
-is also neglected in the conventional Stokesian dynamics.
-The dynamics for such massless particles are
-\begin{equation}
-  \frac{{\rm d}\bm{x}}{{\rm d}t}
-  =
-  \bm{U}
-  ,
-\end{equation}
-where $\bm{U}$ is the particle velocity.
-For massless particles, $\bm{U}$ is obtained
-by the mobility (or mixed) problem
-\begin{equation}
-  \bm{U}
-  =
-  \bm{M}\cdot\bm{F}_{\text{ext}}
-  ,
-\end{equation}
-where $\bm{F}_{\text{ext}}$ is the external force acting on the particle.
-
-To simulate the massless particle, set the parameter ``{\tt stokes}'' 
-in the initialization script zero.
+In the following, 
+we are going to see parameters given by the ``{\tt init-file}'' 
+passed to the simulator {\tt stokes3}. 
+Note on the unit of length that 
+most parameters related to the length is scaled by 
+the parameter ``{\tt length},'' while some (including 
+``{\tt length}'') are given with the real length unit 
+which you may take by yourself. 
+That is, either nanometer (nm) or micrometer ($\mu$m) is fine, 
+but use only one choice (of course). 
 
 
-\subsubsection{Massive Particles}
-Relatively larger particles are used in some systems like fluidized beds,
-where the inertial effect is not negligible anymore.
-For such massive particles,
-a dynamics presented in Ref. \cite{IchikiHayakawa1995,IchikiHayakawa1998}
-is implemented:
-\begin{eqnarray}
-  \widetilde{\text{St}}\ 
-  \frac{{\rm d}\bm{U}}{{\rm d}t}
-  &=&
-  -\bm{U}+\bm{V}
-  ,
-  \\
-  \frac{{\rm d}\bm{x}}{{\rm d}t}
-  &=&
-  \bm{U}
-  ,
-\end{eqnarray}
-where $\widetilde{\text{St}}$ is the effective Stokes number
-representing the inertial effect of the particle,
-$\bm{U}$ is the particle velocity, and
-$\bm{V}$ is the terminal velocity obtained
-by the mobility (or mixed) problem in this case given by
-\begin{equation}
-  \bm{V}
-  =
-  \bm{M}\cdot\bm{F}_{\text{ext}}
-  .
-\end{equation}
-The parameter ``{\tt stokes}'' in the initialization script 
-corresponds to $\widetilde{\text{St}}$.
-
-
-In this dynamics, collisions among particles are implemented 
-not by the contact force but by the momentum exchange
-for the contact pairs. The frequency of the contact-check 
-is controlled by the parameter ``{\tt ncol}''.
-
-
-\paragraph{Simple Equation of Motion}
-The reason why the effective dynamics above are implemented
-rather than the simple Newton's equation of motion
-\begin{equation}
-  \text{St}
-  \frac{{\rm d}\bm{U}}{{\rm d}t}
-  =
-  -\bm{F}_{\text{stokes}}
-  +\bm{F}_{\text{ext}}
-  ,
-\end{equation}
-where $\text{St}$ is the true Stokes number
-and $\bm{F}_{\text{stokes}} = \bm{R}\cdot\bm{U}$,
-is that
-the latter gives similar behavior in the massless dynamics
-due to the strong (diverging) resistance in the lubrication.
-\cite{IchikiHayakawa1998}
-
-** I'll implement this dynamics soon. **
-
-
-\subsubsection{ODE parameters}
-To obtain the trajectory, the above equation of motion
-in the form of ordinary differential equation
-is integrated in time.
-In the code, ODE integrator in GSL library\cite{GSL} is used.
-
-Currently the following stepper routines are available:
-\begin{itemize}
-\item ``{\tt rk2}''       Embedded Runge-Kutta (2, 3) method.
-\item ``{\tt rk4}''       4th order (classical) Runge-Kutta.
-\item ``{\tt rkf45}''     Embedded Runge-Kutta-Fehlberg (4, 5) method.
-\item ``{\tt rkck}''      Embedded Runge-Kutta Cash-Karp (4, 5) method.
-\item ``{\tt rk8pd}''     Embedded Runge-Kutta Prince-Dormand (8,9) method.
-\item ``{\tt rk2imp}''    Implicit 2nd order Runge-Kutta at Gaussian points.
-\item ``{\tt rk4imp}''    Implicit 4th order Runge-Kutta at Gaussian points.
-\item ``{\tt gear1}''     M=1 implicit Gear method.
-\item ``{\tt gear2}''     M=2 implicit Gear method.
-\end{itemize}
-Set the name at ``{\tt ode-solver}'' in the initialization script.
-
-
-\subsection{{\tt libstokes} Parameters}
-\begin{itemize}
-\item {\tt version} : (string) ``{\tt F},'' ``{\tt FT},'' or ``{\tt FTS}.''
-\item {\tt flag-mat}: (bool)
-  {\tt \#t} for matrix scheme,
-  {\tt \#f} for atimes scheme
-\item {\tt flag-lub}: (bool)
-  {\tt \#t} with lub,
-  {\tt \#f} without lub
-\item {\tt lub-min}: (double) minimum cutoff of distance for lubrication
-\item {\tt lub-max}: (double) maximum cutoff of distance for lubrication
-\item {\tt periodic}: (bool)
-  {\tt \#t} for periodic systems
-  {\tt \#f} for open boundary systems
-\end{itemize}
-The following parameters are only for the periodic systems:
-\begin{itemize}
-\item {\tt ewald-tr}: (double) time ratio $T_r/T_k$ for Ewald summation
-\item {\tt ewald-eps}: (double) cut-off limit for Ewald summation
-\item {\tt lattice}: (list of doubles) size of the periodic box
-\end{itemize}
-(See Section \ref{sec:xi3} for the details.)
-
+\subsection{Output Parameters}
+{\small
+\begin{verbatim}
+	outfile    : filename for NetCDF output
+	dt         : time interval for the integrator
+	nout       : frequency of data outputs
+	   NOTE for GSL integrator (non-Brownian), this is just an initial one,
+		for non-zero Stokes, "dt" is the upper limit,
+		for zero Stokes, "dt * nout" is the upper limit,
+		for Brownian, "dt" is fixed by this value.
+	nloop      : number of output steps (time duration is "dt*nout*nloop")
+	flag-Q     : #t output quaternion,
+	           : #f no quaternion in the output.
+\end{verbatim}
+}
 
 \subsection{System Parameters}
 \begin{itemize}
@@ -258,19 +156,33 @@ The following parameters are only for the periodic systems:
 \item {\tt nm} : (int) number of {\it mobile} particles
 \item {\tt x} : (list or vector of doubles)
   initial positions of {\it all} particles
+\item {\tt a} : (list or vector of doubles)
+  radius of particles (list or vector with length np)
+  by default (if not given), monodisperse system
+\item {\tt slip} : (list or vector of doubles)
+  slip length of particles (list or vector with length np)
+  by default (if not given), no-slip particles
 \item {\tt Ui} : (list or vector of doubles)
   imposed translational velocity $\bm{u}^\infty$
 \item {\tt Oi} : (list or vector of doubles)
   imposed angular velocity $\bm{\Omega}^\infty$
 \item {\tt Ei} : (list or vector of doubles)
   imposed strain velocity $\bm{E}^\infty$
+\item {\tt shear-mode} : (int)\\
+  0 imposed flow is given by {\tt Ui}, {\tt Oi}, {\tt Ei} (default)\\
+  1 for simple shear (x = flow dir, y = grad dir)\\
+  2 for simple shear (x = flow dir, z = grad dir)\\
+  NOTE: ({\tt Ui},{\tt Oi},{\tt Ei}) is overwritten 
+  for the case ${\tt shear-mode} \ne 0$
+\item {\tt shear-rate} : (double) shear rate 
+  for the case ${\tt shear-mode} \ne 0$
+\item {\tt shear-shift} : the initial cell-shift for 
+  ${\tt shear-mode} \ne 0$
 \item {\tt F0} : (list or vector of doubles)
   applied force $\bm{F}_{\text{ext}}$
 \item {\tt T0} : (list or vector of doubles)
   applied force $\bm{T}_{\text{ext}}$
 \item {\tt stokes} : (doubles) effective Stokes number $\widetilde{\text{St}}$
-\item {\tt ncol} : (int) frequency of collision check in
-  {\tt dt} for $\widetilde{\text{St}}\neq 0$
 \end{itemize}
 Currently, the applied force $\bm{F}_{\text{ext}}$
 and torque $\bm{T}_{\text{ext}}$ are given by the single vector, respectively.
@@ -402,6 +314,461 @@ Therefore, it is given by
   .
 \end{eqnarray}
 
+\subsection{Hydrodynamic Interaction Parameters}
+\subsubsection{Core {\tt libstokes} Parameters}
+\begin{itemize}
+\item {\tt version} : (string) ``{\tt F},'' ``{\tt FT},'' or ``{\tt FTS}.''
+\item {\tt flag-noHI} : (bool)\\
+  {\tt \#t} for no hydrodynamic interaction, 
+  that is, only the self term (Stokes drag),\\
+  {\tt \#f} with hydrodynamic interactions
+\item {\tt flag-mat}: (bool)\\
+  {\tt \#t} for matrix scheme,\\
+  {\tt \#f} for atimes scheme
+\item {\tt flag-lub}: (bool)\\
+  {\tt \#t} with lub,\\
+  {\tt \#f} without lub
+\item {\tt rmin} : (double) parameter for mininum distance in
+  $(a_{i}+a_{j})\ {\tt *\ rmin}$.
+\item {\tt lub-min}: (double) minimum cutoff of distance for lubrication
+\item {\tt lub-max}: (double) maximum cutoff of distance for lubrication
+\item {\tt periodic}: (bool)\\
+  {\tt \#t} for periodic systems,\\
+  {\tt \#f} for open boundary systems
+\end{itemize}
+The following parameters are only for the periodic systems:
+\begin{itemize}
+\item {\tt ewald-tr}: (double) time ratio $T_r/T_k$ for Ewald summation
+\item {\tt ewald-eps}: (double) cut-off limit for Ewald summation
+\item {\tt lattice}: (list of doubles) size of the periodic box
+\end{itemize}
+(See Section \ref{sec:xi3} for the details.)
+
+\subsubsection{{\tt libiter} Parameters}
+If ``{\tt flag-mat}'' is set by {\tt \#f}, linear set of equations 
+for the hydrodynamic interaction is solved by iterative method 
+in {\tt libiter}. 
+\begin{itemize}
+\item {\tt IT-solver} : (string) solver for libiter.
+\item {\tt IT-max} : max number of iteraction
+\item {\tt IT-n}   : restart number
+\item {\tt IT-eps} : accuracy of the solution
+\end{itemize}
+For ``{\tt IT-solver},'' set one of the following
+\begin{itemize}
+\item ``{\tt cg}'' for conjugate gradient method
+\item ``{\tt cgs}'' for conjugate gradient squared (Weiss' Algorithm 11)
+\item ``{\tt bicgstab}'' for Bi-CG stabilized (Weiss' Algorithm 12)
+\item ``{\tt sta}'' for Bi-CG stab method (another implementation)
+\item ``{\tt sta2}'' for Bi-CG dtab2 method
+\item ``{\tt gpb}'' for gpbi-cg method
+\item ``{\tt otmk}'' for orthomin method
+\item ``{\tt gmres}'' for generalized minimum residual method
+\end{itemize}
+
+
+\subsection{Non-Brownian Dynamics Parameters}
+\subsubsection{Massless Particles}
+Colloidal particles are small and the inertial effect of the particle 
+is also neglected in the conventional Stokesian dynamics.
+The dynamics for such massless particles are
+\begin{equation}
+  \frac{{\rm d}\bm{x}}{{\rm d}t}
+  =
+  \bm{U}
+  ,
+\end{equation}
+where $\bm{U}$ is the particle velocity.
+For massless particles, $\bm{U}$ is obtained
+by the mobility (or mixed) problem
+\begin{equation}
+  \bm{U}
+  =
+  \bm{M}\cdot\bm{F}_{\text{ext}}
+  ,
+\end{equation}
+where $\bm{F}_{\text{ext}}$ is the external force acting on the particle.
+
+To simulate the massless particle, set the parameter ``{\tt stokes}'' 
+in the initialization script zero.
+
+
+\subsubsection{Massive Particles}
+Relatively larger particles are used in some systems like fluidized beds,
+where the inertial effect is not negligible anymore.
+For such massive particles,
+a dynamics presented in Ref. \cite{IchikiHayakawa1995,IchikiHayakawa1998}
+is implemented:
+\begin{eqnarray}
+  \widetilde{\text{St}}\ 
+  \frac{{\rm d}\bm{U}}{{\rm d}t}
+  &=&
+  -\bm{U}+\bm{V}
+  ,
+  \\
+  \frac{{\rm d}\bm{x}}{{\rm d}t}
+  &=&
+  \bm{U}
+  ,
+\end{eqnarray}
+where $\widetilde{\text{St}}$ is the effective Stokes number
+representing the inertial effect of the particle,
+$\bm{U}$ is the particle velocity, and
+$\bm{V}$ is the terminal velocity obtained
+by the mobility (or mixed) problem in this case given by
+\begin{equation}
+  \bm{V}
+  =
+  \bm{M}\cdot\bm{F}_{\text{ext}}
+  .
+\end{equation}
+The parameter ``{\tt stokes}'' in the initialization script 
+corresponds to $\widetilde{\text{St}}$.
+
+
+In this dynamics, collisions among particles are implemented 
+not by the contact force but by the momentum exchange
+for the contact pairs. The frequency of the contact-check 
+is controlled by the parameter ``{\tt ncol}''.
+
+
+\paragraph{Simple Equation of Motion}
+The reason why the effective dynamics above are implemented
+rather than the simple Newton's equation of motion
+\begin{equation}
+  \text{St}
+  \frac{{\rm d}\bm{U}}{{\rm d}t}
+  =
+  -\bm{F}_{\text{stokes}}
+  +\bm{F}_{\text{ext}}
+  ,
+\end{equation}
+where $\text{St}$ is the true Stokes number
+and $\bm{F}_{\text{stokes}} = \bm{R}\cdot\bm{U}$,
+is that
+the latter gives similar behavior in the massless dynamics
+due to the strong (diverging) resistance in the lubrication.
+\cite{IchikiHayakawa1998}
+
+** I'll implement this dynamics soon. **
+
+\subsubsection{ODE Parameters}
+To obtain the trajectory, the above equation of motion
+in the form of ordinary differential equation
+is integrated in time.
+In the code, ODE integrator in GSL library\cite{GSL} is used.
+
+Currently the following stepper routines are available:
+\begin{itemize}
+\item ``{\tt rk2}''       Embedded Runge-Kutta (2, 3) method.
+\item ``{\tt rk4}''       4th order (classical) Runge-Kutta.
+\item ``{\tt rkf45}''     Embedded Runge-Kutta-Fehlberg (4, 5) method.
+\item ``{\tt rkck}''      Embedded Runge-Kutta Cash-Karp (4, 5) method.
+\item ``{\tt rk8pd}''     Embedded Runge-Kutta Prince-Dormand (8,9) method.
+\item ``{\tt rk2imp}''    Implicit 2nd order Runge-Kutta at Gaussian points.
+\item ``{\tt rk4imp}''    Implicit 4th order Runge-Kutta at Gaussian points.
+\item ``{\tt gear1}''     M=1 implicit Gear method.
+\item ``{\tt gear2}''     M=2 implicit Gear method.
+\end{itemize}
+Set the name in ``{\tt ode-solver}'' at the initialization script. 
+The variable ``{\tt ode-eps}'' is the accuracy parameter $\epsilon$ 
+for the GSL-ODE routine. 
+
+
+\subsection{Brownian Dynamics Parameters}
+Details of the method and algorithms are described in 
+\S \ref{sec:BrownianDynamics}. 
+{\small
+\begin{verbatim}
+	peclet       : peclet number (negative means no Brownian force)
+	length       : unit of the length scale [nm]
+	BD-seed      : seed for Brownian force random number generator
+	n-cheb-minv  : number of Chebyshev coefficients for M^{-1}
+	n-cheb-lub   : number of Chebyshev coefficients for L
+		(if zero is given, use Cholesky decomposition)
+	BD-scheme    : Brownian dynamics time integration scheme
+		"mid-point"        The mid-point algorithm.
+		"BanchioBrady03"   Banchio and Brady (2003).
+		"BallMelrose97"    Ball and Melrose (1997).
+		"JendrejackEtal00" Jendrejack et al (2000).
+		"semi-implicit-PC" semi-implicit predictor-corrector.
+		"SI-connector"     semi-implicit for connector vectors.
+	BB-n         : step parameter for Banchio-Brady03 algorithm.
+	BD-nl-solver : nonlinear solver for implicit schemes
+		"GSL"    GSL multiroot solver
+		"NITSOL" Newton-GMRES solver by Pernice and Walker (1998)
+		"fastSI" fast semi-implicit solver (only for "SI-connector")
+
+* dt-ajustment parameters for Brownian dynamics
+	NOTE: if rmin is defined by non-zero, the process is skipped.
+	BD-rmin : overlap-param for dt-adjustment process in BD.
+	          the condition is (r2 < rmin * a2).
+	dt-lim  : lower bound to shrink dt to prevent overlaps.
+	          set equal to "dt" if you don't want to adjust "dt"
+	          but just reject it.
+\end{verbatim}
+}
+
+\subsection{Chain Interaction Parameters}
+Details of the models are described in 
+\S \ref{sec:ChainInteraction}. 
+\subsubsection{Bond Parameters}
+{\small
+\begin{verbatim}
+	bonds      : bonds among particles, list in the following form
+	(define bonds '(
+	  (; bond 1
+	   0       ; 1) spring type
+	   (       ; 2) spring parameters (list with 3 elements)
+	    0      ;    fene = 0 means (p1, p2) = (A^{sp}, L_{s})
+	    1.0    ;    p1   = A^{sp}, scaled spring constant
+	    2.1)   ;    p2   = L_{s} / length, scaled max extension
+	   ((0 1)  ; 3) list of pairs
+	    (1 2)
+	    (2 3))
+	    -1)    ; 4) number of exclusion for lubrication
+	           ;    negative means all particles in the chain is excluded.
+	  (; bond 2
+	   2       ; 1) spring type
+	   (       ; 2) spring parameters (list with 3 elements)
+	    1      ;    fene = 1 means (p1, p2) = (N_{K,s}, b_{K})
+	    19.8   ;    p1 = N_{K,s}, the Kuhn steps for a spring
+	    106.0) ;    p2 = b_{K} [nm], the Kuhn length
+	           ;    note that, for dWLC (type == 6),
+	           ;    (p1, p2) = (k, r0 [nm]), where the potential is
+	           ;    (k/2) * (kT / r0^2) * (r-r0)^2
+	   ((4 5)  ; 3) list of pairs
+	    (5 6)
+	    (6 7))
+	    1)     ; 4) number of exclusion for lubrication
+	  (; bond 3
+	   7       ; 1) spring type (FENE-Fraenkel)
+	   (       ; 2) spring parameters (list with 4 elements)
+	    0      ;    fene = 0 means (p1, p2, p3) = (H, r0 [nm], tol)
+	    1.0e6  ;    p1 = H, the spring constant
+	    0.5    ;    p2 = r0 [nm], the natural length of the spring
+	    0.01)  ;    p3 = tol, the tolerance parameter "s"
+	           ;    note that, for FENE-Fraenkel (type == 7),
+	           ;    the scalar part of the force is
+	           ;    fr = H * (r/hat(r0) - 1.0) / (1 - ((1-r/hat(r0))/tol)^2)
+	           ;    where hat(r0) = r0 / L0 (L0 is given by "length" [nm])
+	   ((8 9)  ; 3) list of pairs
+	    (9 10))
+	    0)     ; 4) number of exclusion for lubrication
+	 ))
+	where spring types are
+	  0 : Hookean spring (Asp * (r - Ls)
+	  1 : wormlike chain (WLC)
+	  2 : inverse Langevin chain (ILC)
+	  3 : Cohen's Pade approximation
+	  4 : Warner spring
+	  5 : Hookean spring (Asp * r / Ls)
+	  6 : Hookean spring for dWLC
+	  7 : FENE-Fraenkel
+	flag_relax : #f stokesian dynamics,
+	           : #t relaxation dynamics for bonds.
+	gamma      : friction coefficient for the relaxation dynamics
+\end{verbatim}
+}
+
+\subsubsection{Agnle Parameters}
+{\small
+\begin{verbatim}
+	angles : angles among particles, list in the following form;
+	(define angles '(
+	  (; angle type 1
+	   10.0    ; 1) constant (k^{angle})
+	   0.0     ; 2) angle in degree (theta_0)
+	   0       ; 3) scale flag (0 == scaled)
+	           ;    in this case, the above value for k is just used.
+	   ((0 1 2); 4) list of triplets
+	    (1 2 3)
+	    (2 3 4)
+	   )
+	  )
+	  (; angle type 2
+	   20.0    ; 1) constant (k^{angle})
+	   90.0    ; 2) angle in degree (theta_0)
+	   1       ; 3) scale flag (1 == not scaled yet)
+	           ;    in this case, the potential is given by
+	           ;    (k/2) * kT * (theta - theta_0)^2
+	   ((3 4 5); 4) list of triplets
+	    (4 5 6)
+	   )
+	  )
+	))
+\end{verbatim}
+}
+
+\subsubsection{Constraint Parameters}
+Instead of introducing spring between the connecting particles, 
+we may introduce constraints for each connection. 
+This approach is called ``bead-rod'' model. 
+
+{\small
+\begin{verbatim}
+	constraints : list in the following format;
+	(define constraints '(
+	 ; system parameters
+	 1.0e-6    ; 1) tolerance
+	 "NITSOL"  ; 2) scheme for solving nonlinear equations
+	             ;  "linear" for iterative scheme in linear approximation
+	             ;  "NITSOL" for Newton-GMRES scheme by NITSOL library
+	 ; the following is for each constraint
+	 (         ; 3) constraint type 1
+	  5.0      ; 3-1) distance [nm]
+	  (        ; 3-2) list of particle-pairs
+	   (0 1)
+	   (1 2)
+	   (2 3)
+	 ))
+	 (         ; 4) constraint type 2
+	  10.0     ; 4-1) distance [nm]
+	  (        ; 4-2) list of particle-pairs
+	   (3 4)
+	   (4 5)
+	 ))
+	))
+\end{verbatim}
+}
+
+\subsection{Excluded-Volume Parameters}
+\subsubsection{Gaussian Type Excluded-Volume Parameters}
+{\small
+\begin{verbatim}
+	ev : list in the following form;
+	(define ev '(
+	 5.0     ; max distance [nm] (or in the same dimension of "length")
+	 ( ; for EV type 1
+	  0.0012 ; v [nm^3] (or in the same dimension of "length")
+	  0      ; fene flag. if fene == 0, (p1,p2) = (A^{sp},L_{s})
+	  1.0    ; p1 = A^{sp}, scaled spring const
+	  2.1    ; p2 = L_{s} / length, scaled max extension
+	  (0 1 2); list of particles belongs to the EV parameters
+	 )
+	 ( ; for EV type 2
+	  0.002  ; v [nm^3] (or in the same dimension of "length")
+	  1      ; fene flag. if fene == 1, (p1,p2) = (N_{K,s},b_{K})
+	  19.8   ; p1 = N_{K,s}, the Kuhn steps for a spring
+	  106.0  ; p2 = b_{K} [nm], the Kuhn length
+	  (3 4)  ; list of particles belongs to the EV parameters
+	 )
+	))
+\end{verbatim}
+}
+
+\subsubsection{Debye-H\"{u}ckel Type Excluded-Volume Parameters}
+{\small
+\begin{verbatim}
+	ev-dh : list in the following form;
+	(define ev-dh '(
+	  ; system parameters
+	  1.0e-6   ; 1) epsilon for the cut-off distance of EV_DH interaction
+	  298.0    ; 2) temperature [K]
+	  80.0     ; 3) dielectric constant of the solution
+	  3.07     ; 4) Debye length [nm]
+	  (        ; 5) list of DH types
+	   (; DH type 1
+	    2.43    ; 1) nu [e/nm]
+	    5.00    ; 2) l0 [nm]
+	    (0 1 2) ; 3) list of particles
+	   )
+	   (; DH type 2
+	    2.00    ; 1) nu [e/nm]
+	    4.00    ; 2) l0 [nm]
+	    (3 4)   ; 3) list of particles
+	   )
+	  )
+	))
+\end{verbatim}
+}
+
+\subsubsection{Lennard-Jones Type Excluded-Volume Parameters}
+{\small
+\begin{verbatim}
+	ev-LJ : list in the following form;
+	(define ev-LJ '(
+	 (; LJ type 1
+	  10.0 ; 1) LJ parameter epsilon in kT (so this is dimensionless value)
+	  1.0  ; 2) LJ parameter r0 in "length" (so this is dimensionless value)
+	  (    ; 3) list of particles
+	   0 1 2
+	  )
+	 )
+	 (; LJ type 2
+	  8.0  ; 1) LJ parameter epsilon in kT (so this is dimensionless value)
+	  2.0  ; 2) LJ parameter r0 in "length" (so this is dimensionless value)
+	  (    ; 3) list of particles
+	   3 4
+	  )
+	 )
+	))
+\end{verbatim}
+}
+
+\subsection{Confinement Force Parameters}
+Sometimes, we want to simulate particles under a confinement. 
+We may introduce such confinement (which has no hydrodynamic interaction 
+but only mechanical force on the particles) 
+by the parameter ``{\tt confinement}.'' 
+Details of the models are described in 
+\S \ref{sec:Confinements}. 
+
+{\small
+\begin{verbatim}
+	confinement : list in the following form;
+	for spherical confinement,
+	(define confinement '(
+	  10.0 ;; LJ parameter epsilon in kT (so this is dimensionless value)
+	  1.0  ;; LJ parameter r0 in "length" (so this is dimensionless value)
+	  "sphere"
+	  10.0 ;; radius of the cavity at (0, 0, 0)
+	))
+	or spherical confinement with a hole,
+	(define confinement '(
+	  10.0 ;; LJ parameter epsilon in kT (so this is dimensionless value)
+	  1.0  ;; LJ parameter r0 in "length" (so this is dimensionless value)
+	  "sphere+hole"
+	  10.0 ;; radius of the cavity at (0, 0, 0)
+	  1.0  ;; radius of the hole at (0, 0, 1) direction
+	))
+	for cylindrical confinement,
+	(define confinement '(
+	  10.0 ;; LJ parameter epsilon in kT (so this is dimensionless value)
+	  1.0  ;; LJ parameter r0 in "length" (so this is dimensionless value)
+	  "cylinder" ;; the cylinder center goes through (0,0,0) and (x,y,z)
+	  10.0       ;; radius of the cylinder
+	  1.0  0.0  0.0 ;; direction vector (x, y, z) of the cylinder
+	))
+	for dumbbell confinement,
+	(define confinement '(
+	  10.0 ;; LJ parameter epsilon in kT (so this is dimensionless value)
+	  1.0  ;; LJ parameter r0 in "length" (so this is dimensionless value)
+	  "dumbbell" ;; the origin is at the center of the cylinder
+	  10.0       ;; left cavity radius centered at (center1, 0, 0)
+	  10.0       ;; right cavity radius centered at (center2, 0, 0)
+	  2.0        ;; length of the cylinder
+	  1.0        ;; cylinder radius
+	))
+	for 2D hexagonal confinement with cylinder pipe,
+	(define confinement '(
+	  10.0 ;; LJ parameter epsilon in kT (so this is dimensionless value)
+	  1.0  ;; LJ parameter r0 in "length" (so this is dimensionless value)
+	  "hex2d"
+	  10.0    ;; cavity radius
+	  1.0     ;; cylinder radius
+	  12.0    ;; lattice spacing
+	))
+	for porous media (outside of the 3D hexagonal particle array)
+	(define confinement '(
+	  10.0 ;; LJ parameter epsilon in kT (so this is dimensionless value)
+	  1.0  ;; LJ parameter r0 in "length" (so this is dimensionless value)
+	  "porous"
+	  10.0    ;; particle radius
+	  20.0    ;; lattice spacing in x (2R for touching case)
+	))
+\end{verbatim}
+}
 
 
 \subsection{Parameter Script}
@@ -410,17 +777,21 @@ Here's a sample initialization script:
 \begin{verbatim}
 ; sample initialization file for stokes3
 ; SC lattice config of 8 particles in (5,5,5) box
-; $Id: manual.tex,v 1.4 2008/07/11 04:19:42 kichiki Exp $
+; $Id: manual.tex,v 1.5 2008/10/12 20:16:53 kichiki Exp $
 
 ;; output parameters
 (define outfile    "stokes3.SC8.nc") ; output filename
-(define dt         1.0)     ; time interval
+(define dt         0.1)     ; time step for the integrator
+(define nout       10)      ; frequency of data output
 (define nloop      1000)    ; main loop
+(define flag-Q     #f)      ; #t => output quaternion, #f => no quaternion.
 
 ;; core libstokes parameters
 (define version    "F")     ; version. "F", "FT", or "FTS"
+(define flag-noHI  #f)      ; #t => no HI, #f => with HI
 (define flag-mat   #t)      ; #t => matrix scheme, #f => atimes scheme
 (define flag-lub   #t)      ; #t => with lub,      #f => without lub
+(define rmin       0.0)     ; param for min distance (ai+aj) * rmin
 (define lub-min    2.0000000001) ; min cutoff of distance for lub
 (define lub-max    4.0)          ; max cutoff of distance for lub
 
@@ -429,6 +800,22 @@ Here's a sample initialization script:
 (define ewald-tr   4.1)     ; time ratio Tr/Tk for Ewald summation
 (define ewald-eps  1.0e-12) ; cut-off limit for Ewald summation
 (define lattice    '(5.0  5.0  5.0)) ; size of the periodic box
+
+;; iterative solver (ignored if flag-mat is true)
+(define IT-solver "otmk") ; solver for libiter
+; the following solvers are available
+; "cg"       conjugate gradient method
+; "cgs"      conjugate gradient squared (Weiss' Algorithm 11)
+; "bicgstab" bi-conjugate gradient stabilized (Weiss' Algorithm 12)
+; "sta"      bi-cgstab method
+; "sta2"     bi-cgstab2 method
+; "gpb"      gpbi-cg method
+; "otmk"     orthomin method
+; "gmres"    generalized minimum residual method
+(define IT-max 2000)   ; max number of iterations
+(define IT-n   20)     ; restart number
+(define IT-eps 1.0e-6) ; accuracy of the solution
+(define IT-debug 0)    ; set 1 to print the debug info for solve_iter()
 
 ;; ODE parameters
 (define ode-solver "rkf45")
@@ -448,6 +835,36 @@ Here's a sample initialization script:
 (define np         8)       ; number of particles
 (define nm         8)       ; number of free particles
 
+; particle radius
+; set '() for monodisperse (a = 1.0 for all particles)
+(define a '())
+; otherwise, poly codes are used in the calculations
+;(define a #(
+;1.0
+;1.0
+;1.0
+;1.0
+;1.0
+;1.0
+;1.0
+;1.0
+;))
+
+; slip length
+; set '() for no-slip system (slip = 0 for all particles)
+(define slip '())
+; otherwise, slip codes are used in the calculations
+;(define slip #(
+;1.0
+;1.0
+;1.0
+;1.0
+;1.0
+;1.0
+;1.0
+;1.0
+;))
+
 ; initial configuration
 (define x #(
 0.0  0.0  0.0
@@ -460,100 +877,271 @@ Here's a sample initialization script:
 2.5  2.5  2.5
 ))
 
+; imposed-flow parameters
 (define Ui '(0.0  0.0  0.0)) ; imposed translational velocity
 (define Oi '(0.0  0.0  0.0)) ; imposed angular velocity relative to O
 (define Ei '(0.0  0.0  0.0  0.0  0.0)) ; imposed strain relative to O
 
+; auxiliary imposed-flow parameters for simple shear
+(define shear-mode 0); 0 == imposed flow is given by Ui, Oi, Ei
+                     ; 1 == simple shear (x = flow dir, y = grad dir)
+                     ; 2 == simple shear (x = flow dir, z = grad dir)
+(define shear-rate 0.0); the shear rate for shear-mode = 1 or 2
+(define shear-shift 0.0); the initial condition of cell-shift
+                        ; for shear-mode = 1 or 2
+
 (define F0 '(0.0  0.0 -0.1)) ; applied force
 (define T0 '(0.0  0.0  0.0)) ; applied torque
 
-(define stokes     0.0)     ; effective stokes number
-(define ncol       10)      ; frequency of collision check in dt for st != 0
+(define stokes 0.0)     ; effective stokes number
 
+;; Brownian dynamics parameters
+(define peclet -1)      ; peclet number (negative means no Brownian force)
+(define length 1.0)     ; the characteristic length [nm] (or [micro m]).
+                        ; the parameters above are recognized by this.
+                        ; the unit should be the same for parameters below
+                        ; just ignored for non-Brownian case (peclet<0).
+(define BD-seed 0)      ; seed for random number generator for BD.
 
-;; bond parameters
+(define n-cheb-minv 50)      ; number of chebyshev coefficients for minv
+(define n-cheb-lub  70)      ; number of chebyshev coefficients for lub
+
+; time-integration scheme
+(define BD-scheme "mid-point")
+; the following algorithms are available
+; "mid-point"        the mid-point algorithm
+; "BanchioBrady03"   Banchio-Brady (2003)
+; "BallMelrose97"    Ball-Melrose (1997)
+; "JendrejackEtal00" Jendrejack et al (2000)
+; "semi-implicit-PC" semi-implicit predictor-corrector
+; "SI-connector"     semi-implicit for connector vectors
+(define BB-n   100)    ; step parameter for Banchio-Brady-2003 algorithm
+
+; nonlinear solver for implicit schemes
+(define BD-nl-solver "GSL")
+; the following solvers are available
+; "GSL"    GSL multiroot solver
+; "NITSOL" Newton-GMRES solver by Pernice and Walker (1998)
+; "fastSI" fast semi-implicit solver (only for "SI-connector")
+
+; dt-adjustment parameters
+; NOTE: if 'rmin' above is defined by non-zero, dt-adjustment is just skipped.
+(define BD-rmin 1.0)   ; overlap-param for dt-adjustment process in BD.
+                       ; the condition is (r2 <= rmin * a2).
+(define dt-lim 1.e-12) ; lower bound to shrink dt to prevent overlaps
+                       ; set "dt" (or larger value) if you don't want 
+                       ; to adjust "dt" but just reject it.
+
+;; constraint parameters
+(define constraints '())
+; an example of constraints
+; note that the distance unit should be the same for "length" above.
+;(define constraints '(
+; ; system parameters
+; 1.0e-6    ; 1) tolerance
+; "NITSOL"  ; 2) scheme for solving nonlinear equations
+;           ;    "linear" for iterative scheme in linear approximation
+;           ;    "NITSOL" for Newton-GMRES scheme by NITSOL library
+; ; the following is for each constraint
+; (         ; 3) constraint type 1
+;  5.0      ; 3-1) distance [nm]
+;  (        ; 3-2) list of particle-pairs
+;   (0 1)
+;   (1 2)
+;   (2 3)
+; ))
+; (         ; 4) constraint type 2
+;  10.0     ; 4-1) distance [nm]
+;  (        ; 4-2) list of particle-pairs
+;   (3 4)
+;   (4 5)
+; ))
+;))
+
+; bond parameters
 (define bonds '())
 (define flag-relax #f) ; #f => stokesian dynamics with bond interactions
                        ; #t => relaxation dynamics only with bond interactions
 (define gamma 1.0)     ; friction coefficient for relaxation dynamics
+; an example of bonds
+; note that the length unit should be the same for "length" above.
+;(define bonds '(
+;  (; bond 1
+;   0       ; 1) spring type
+;   (       ; 2) spring parameters (list with 3 elements)
+;    0      ;    fene = 0 means (p1, p2) = (A^{sp}, L_{s})
+;    1.0    ;    p1   = A^{sp}, scaled spring constant
+;    2.1)   ;    p2   = L_{s} / length, scaled max extension
+;   ((0 1)  ; 3) list of pairs
+;    (1 2)
+;    (2 3))
+;    -1)    ; 4) number of exclusion for lubrication
+;           ;    negative means all particles in the chain is excluded.
+;  (; bond 2
+;   2       ; 1) spring type
+;   (       ; 2) spring parameters (list with 3 elements)
+;    1      ;    fene = 1 means (p1, p2) = (N_{K,s}, b_{K})
+;    19.8   ;    p1 = N_{K,s}, the Kuhn steps for a spring
+;    106.0) ;    p2 = b_{K} [nm], the Kuhn length
+;           ;    note that, for dWLC (type == 6),
+;           ;    (p1, p2) = (k, r0 [nm]), where the potential is
+;           ;    (k/2) * (kT / r0^2) * (r-r0)^2
+;   ((4 5)  ; 3) list of pairs
+;    (5 6)
+;    (6 7))
+;     1)    ; 4) number of exclusion for lubrication
+; ))
+; where spring types are
+;   0 : Hookean spring (Asp * (r - Ls)
+;   1 : wormlike chain (WLC)
+;   2 : inverse Langevin chain (ILC)
+;   3 : Cohen's Pade approximation
+;   4 : Warner spring
+;   5 : Hookean spring (Asp * r / Ls)
+;   6 : Hookean spring for dWLC
+
+;; excluded volume parameters
+; note that the length unit should be the same for "length" above.
+;(define ev-v   '())    ; v [nm^3] (or [micro m^3]) for each chain type
+;(define ev-lim 5.0)    ; max distance for F^{EV} [nm] (or [micro m])
+(define ev '())
+; an example
+;(define ev '(
+; 5.0     ; max distance [nm] (or in the same dimension of "length")
+; ( ; for the EV 1
+;  0.0012 ; v [nm^3] (or in the same dimension of "length")
+;  0      ; fene
+;  1.0    ; p1 = A^{sp}, scaled spring const
+;  2.1    ; p2 = L_{s} / length, scaled max extension
+;  (0 1 2); list of particles belongs to the EV parameters
+; )
+; ( ; for the EV 2
+;  0.002  ; v [nm^3] (or in the same dimension of "length")
+;  1      ; fene
+;  19.8   ; p1 = N_{K,s}, the Kuhn steps for a spring
+;  106.0  ; p2 = b_{K} [nm], the Kuhn length
+;  (3 4)  ; list of particles belongs to the EV parameters
+; )
+;))
+
+;; angle parameters
+(define angles '())
+; an example
+;(define angles '(
+;  (; angle type 1
+;   10.0    ; 1) constant (k^{angle})
+;   0.0     ; 2) angle in degree (theta_0)
+;   0       ; 3) scale flag (0 == scaled)
+;           ;    in this case, the above value for k is just used.
+;   ((0 1 2); 4) list of triplets
+;    (1 2 3)
+;    (2 3 4)
+;   )
+;  )
+;  (; angle type 2
+;   20.0    ; 1) constant (k^{angle})
+;   90.0    ; 2) angle in degree (theta_0)
+;   1       ; 3) scale flag (1 == not scaled yet)
+;           ;    in this case, the potential is given by 
+;           ;    (k/2) * kT * (theta - theta_0)^2
+;   ((3 4 5); 4) list of triplets
+;    (4 5 6)
+;   )
+;  )
+;))
+
+;; excluded volume in Debye-Huckel type
+(define ev-dh   '())
+; an example
+; note that the length unit should be the same for "length" above.
+;(define ev-dh '(
+;  ; system parameters
+;  1.0e-6   ; 1) epsilon for the cut-off distance of EV_DH interaction
+;  298.0    ; 2) temperature [K]
+;  80.0     ; 3) dielectric constant of the solution
+;  3.07     ; 4) Debye length [nm] (or [micro m])
+;  (        ; 5) list of chain types
+;   (; chain type 1
+;    2.43    ; 1) nu [e/nm] (or [e/micro m])
+;    5.00    ; 2) l0 [nm] (or [micro m])
+;    (0 1 2) ; 3) list of particles
+;   )
+;   (; chain type 2
+;    2.00    ; 1) nu [e/nm] (or [e/micro m])
+;    4.00    ; 2) l0 [nm] (or [micro m])
+;    (3 4)   ; 3) list of particles
+;   )
+;  )
+;))
+
+;; excluded volume in Debye-Huckel type
+(define ev-LJ   '())
+; an example
+; note that the length unit should be the same for "length" above.
+;(define ev-LJ '(
+; (; LJ type 1
+;  10.0 ; 1) LJ parameter epsilon in kT (so this is dimensionless value)
+;  1.0  ; 2) LJ parameter r0 in "length" (so this is dimensionless value)
+;  (    ; 3) list of particles
+;   0 1 2
+;  )
+; )
+; (; LJ type 2
+;  8.0  ; 1) LJ parameter epsilon in kT (so this is dimensionless value)
+;  2.0  ; 2) LJ parameter r0 in "length" (so this is dimensionless value)
+;  (    ; 3) list of particles
+;   3 4
+;  )
+; )
+;))
+
+;; confinement force parameters
+(define confinement '())
+; examples:
+; for spherical confinement,
+;  (define confinement '(
+;    "sphere"
+;    10.0 ;; radius of the cavity at (0, 0, 0)
+;  ))
+; for spherical confinement with a hole,
+;  (define confinement '(
+;    "sphere+hole"
+;    10.0 ;; radius of the cavity at (0, 0, 0)
+;    1.0  ;; radius of the hole at (0, 0, 1) direction
+;  ))
+; for cylindrical confinement,
+;  (define confinement '(
+;    "cylinder" ;; the cylinder center goes through (0,0,0) and (x,y,z)
+;    10.0       ;; radius of the cylinder
+;    1.0  0.0  0.0 ;; direction vector (x, y, z) of the cylinder
+;  ))
+; for dumbbell confinement,
+;  (define confinement '(
+;    "dumbbell" ;; the origin is at the center of the cylinder
+;    10.0       ;; left cavity radius centered at (center1, 0, 0)
+;    10.0       ;; right cavity radius centered at (center2, 0, 0)
+;    2.0        ;; length of the cylinder
+;    1.0        ;; cylinder radius
+;  ))
+; for 2D hexagonal confinement with cylinder pipe,
+;  (define confinement '(
+;    "hex2d"
+;    10.0    ;; cavity radius
+;    1.0     ;; cylinder radius
+;    12.0    ;; lattice spacing
+;  ))
+; for porous media (outside of the 3D hexagonal particle array)
+;  (define confinement '(
+;    10.0 ;; LJ parameter epsilon in kT (so this is dimensionless value)
+;    1.0  ;; LJ parameter r0 in "length" (so this is dimensionless value)
+;    "porous"
+;    10.0    ;; particle radius
+;    20.0    ;; lattice spacing in x (2R for touching case)
+;  ))
 \end{verbatim}
 }
 
 
-\subsection{Help}
-{\small
-\begin{verbatim}
-$ ./stokes3 --help
-Stokesian dynamics simulator
-$Id: manual.tex,v 1.4 2008/07/11 04:19:42 kichiki Exp $
-
-USAGE
-./stokes3 init-file
-        where init-file is a SCM file (default: stokes3.scm)
-
-Parameters in the init-file:
-* output parameters
-        outfile    : filename for NetCDF output
-        dt         : time interval for outputs
-        nloop      : number of loops for dt
-* core libstokes parameters
-        version    : "F", "FT", or "FTS"
-        flag-mat   : #t for matrix-scheme,
-                   : #f for atimes-scheme.
-        flag-lub   : #t for with-lubrication,
-                   : #f for no-lubrication.
-        periodic   : #f for non-periodic systems,
-                   : #t for periodic systems.
-                     set the next three parameters for the periodic case.
-        ewald-tr   : time ratio Tr/Tk for ewald summation (see xi3 in details.)
-        ewald-eps  : tolerance value for ewald-summation cut-off
-        lattice    : size of the periodic box (list or vector of length 3)
-* ODE parameters
-        ode-solver : GSL ODE solver
-                "rk2"    Embedded Runge-Kutta (2, 3) method.
-                "rk4"    4th order (classical) Runge-Kutta.
-                "rkf45"  Embedded Runge-Kutta-Fehlberg (4, 5) method.
-                "rkck"   Embedded Runge-Kutta Cash-Karp (4, 5) method.
-                "rk8pd"  Embedded Runge-Kutta Prince-Dormand (8,9) method.
-                "rk2imp" Implicit 2nd order Runge-Kutta at Gaussian points.
-                "rk4imp" Implicit 4th order Runge-Kutta at Gaussian points.
-                "gear1"  M=1 implicit Gear method.
-                "gear2"  M=2 implicit Gear method.
-        ode-eps    : GSL ODE control parameter eps
-* system parameters
-        np         : number of ALL (mobile and fixed) particles
-        nm         : number of mobile particles
-        x          : particle configuration (list or vector with length 3*np)
-        Ui         : imposed translational velocity (list or vector of length 3)
-        Oi         : imposed angular velocity (list or vector of length 3)
-        Ei         : imposed strain (list or vector of length 5)
-        F0         : applied force (list or vector of length 3)
-        T0         : applied torque (list or vector of length 3)
-        stokes     : effective stokes number
-        ncol       : frequency of collision check in dt for stokes != 0
-* bond parameters (for chains)
-        bonds      : bonds among particles, list in the following form
-                (define bonds
-                  '(
-                    (; bond 1
-                     1.0 ; spring const
-                     2.1 ; natural distance
-                     ((0 1) ; list of pairs
-                      (1 2)
-                      (2 3)))
-                    (; bond 2
-                     1.0 ; spring const
-                     2.5 ; natural distance
-                     ((4 5) ; list of pairs
-                      (5 6)
-                      (6 7)))
-                    )
-                  )
-        flag_relax : #f stokesian dynamics,
-                   : #t relaxation dynamics for bonds.
-        gamma      : friction coefficient for the relaxation dynamics
-\end{verbatim}
-}
 
 \section{{\tt xi3}:
   Tuning Program for the Ewald Summation}
@@ -723,7 +1311,7 @@ A sample configuration file ({\tt xi3.scm}) is given in the package:
 \begin{verbatim}
 ; sample set file for xi3
 ; SC lattice config of 8 particles in (5,5,5) box
-; $Id: manual.tex,v 1.4 2008/07/11 04:19:42 kichiki Exp $
+; $Id: manual.tex,v 1.5 2008/10/12 20:16:53 kichiki Exp $
 (define version    "F")     ; version. "F", "FT", or "FTS"
 (define flag-mat   #t)      ; #t => matrix scheme, #f => atimes scheme
 (define flag-notbl #f)      ; #t => no-table,      #f => with table
@@ -930,6 +1518,7 @@ Parameters in the init-file:
 \item {\tt stvis-vtk.py} : visualization tool by
   {\bf VTK} (Visualization Toolkit)\cite{VTK}
 \item {\tt stnc2pov.py} : generator of POV-Ray scenes
+\item {\tt stnc} : utility tool for the NetCDF output file
 \item {\tt stncdump.py} : dump tool for the NetCDF output file
 \end{itemize}
 
@@ -955,6 +1544,11 @@ for the constant velocity $\bm{U} = (1,1,1)$
 by the solver {\tt solve\_res\_3f()}.
 {\small
 \begin{verbatim}
+/* test code for libstokes
+ * Copyright (C) 2006-2007 Kengo Ichiki <kichiki@users.sourceforge.net>
+ * $Id: manual.tex,v 1.5 2008/10/12 20:16:53 kichiki Exp $
+*/
+
 int
 main (int argc, char** argv)
 {
@@ -980,7 +1574,8 @@ main (int argc, char** argv)
 
   fprintf (stdout, "xi = %f\n", xi);
 
-  sys->lubmin = 2.0000000001;
+  //sys->lubmin = 2.0000000001;
+  sys->lubmin2 = 4.0000000001;
   sys->lubmax = 4.0;
   stokes_set_iter (sys, "gmres", 2000, 20, 1.0e-6, 1, stdout);
 
@@ -1052,6 +1647,10 @@ The same procedure can be written in {\bf Python}\cite{Python}
 in the following:
 {\small
 \begin{verbatim}
+# test code for libstokes
+# Copyright (C) 2006-2008 Kengo Ichiki <kichiki@users.sourceforge.net>
+# $Id: manual.tex,v 1.5 2008/10/12 20:16:53 kichiki Exp $
+
 import stokes
 
 sys = stokes.stokes_init()
@@ -1073,7 +1672,7 @@ stokes.stokes_set_xi(sys, xi, ewald_eps)
 
 print 'xi =', xi
 
-sys.lubmin = 2.0000000001
+sys.lubmin2 = 4.0000000001
 sys.lubmax = 4.0
 stokes.stokes_set_iter(sys, "gmres", 2000, 20, 1.0e-6,
                        1, stokes.get_stdout())
@@ -1086,7 +1685,29 @@ pos[ 0] = 0.0 # x component
 pos[ 1] = 0.0 # y component
 pos[ 2] = 0.0 # z component
 
-## snip ##
+pos[ 3] = 5.0
+pos[ 4] = 0.0
+pos[ 5] = 0.0
+
+pos[ 6] = 0.0
+pos[ 7] = 5.0
+pos[ 8] = 0.0
+
+pos[ 9] = 0.0
+pos[10] = 0.0
+pos[11] = 5.0
+
+pos[12] = 5.0
+pos[13] = 5.0
+pos[14] = 0.0
+
+pos[15] = 0.0
+pos[16] = 5.0
+pos[17] = 5.0
+
+pos[18] = 5.0
+pos[19] = 0.0
+pos[20] = 5.0
 
 pos[21] = 5.0
 pos[22] = 5.0
@@ -1106,7 +1727,15 @@ for i in range(np):
 stokes.stokes_set_pos(sys, pos)
 stokes.solve_res_3f(sys, u, f)
 
-nc_f = stokes.stokes_nc_mob_f_init("test-stokes.res-3f.nc", np)
+nc_f = stokes.stokes_nc_init("test-stokes.res-3f.nc",
+                             np,
+                             0, # nf
+                             0, # version
+                             0, # flag_poly
+                             0, # flag_Q
+                             0, # flag_it (time-dependent imposed flow)
+                             0, # shear_mode
+                             0) # flag_BD
 # f0, x, u are active
 stokes.stokes_nc_set_f0(nc_f, f)
 stokes.stokes_nc_set_time(nc_f, 0, 0.0)
@@ -1126,6 +1755,10 @@ for i in range(np):
 In {\bf Perl}\cite{Perl},
 {\small
 \begin{verbatim}
+# test code for libstokes
+# Copyright (C) 2006-2008 Kengo Ichiki <kichiki@users.sourceforge.net>
+# $Id: manual.tex,v 1.5 2008/10/12 20:16:53 kichiki Exp $
+
 use stokes;
 
 $sys = stokes::stokes_init();
@@ -1149,8 +1782,8 @@ stokes::stokes_set_xi($sys, $xi, $ewald_eps);
 
 print "xi = ", $xi, "\n";
 
-$sys->{lubmin} = 2.0000000001;
-$sys->{lubmax} = 4.0;
+$sys->{lubmin2} = 4.0000000001;
+$sys->{lubmax}  = 4.0;
 stokes::stokes_set_iter($sys, "gmres", 2000, 20, 1.0e-6,
 			1, stokes::get_stdout());
 
@@ -1194,7 +1827,15 @@ for ($i=0; $i < $np; $i++){
 stokes::stokes_set_pos($sys, $pos);
 stokes::solve_res_3f($sys, $u, $f);
 
-$nc_f = stokes::stokes_nc_mob_f_init("test-stokes.res-3f.nc", $np);
+$nc_f = stokes::stokes_nc_init("test-stokes.res-3f.nc",
+			       $np,
+			       0, # nf
+			       0, # version
+			       0, # flag_poly
+			       0, # flag_Q
+			       0, # flag_it (time-dependent imposed flow)
+			       0, # shear_mode
+			       0);# flag_BD
 # f0, x, u are active
 stokes::stokes_nc_set_f0($nc_f, $f);
 stokes::stokes_nc_set_time($nc_f, 0, 0.0);
@@ -1219,6 +1860,10 @@ for ($i=0; $i < $np; $i++){
 In {\bf Ruby}\cite{Ruby},
 {\small
 \begin{verbatim}
+# test code for libstokes
+# Copyright (C) 2006-2008 Kengo Ichiki <kichiki@users.sourceforge.net>
+# $Id: manual.tex,v 1.5 2008/10/12 20:16:53 kichiki Exp $
+
 require 'stokes'
 
 sys = Stokes::stokes_init()
@@ -1244,8 +1889,8 @@ Stokes::stokes_set_xi(sys, xi, ewald_eps)
 
 print "xi = ", xi, "\n"
 
-sys.lubmin = 2.0000000001
-sys.lubmax = 4.0
+sys.lubmin2 = 4.0000000001
+sys.lubmax  = 4.0
 Stokes::stokes_set_iter(sys, "gmres", 2000, 20, 1.0e-6,
                         1, Stokes::get_stdout())
 
@@ -1258,7 +1903,29 @@ pos[ 0] = 0.0 # x component
 pos[ 1] = 0.0 # y component
 pos[ 2] = 0.0 # z component
 
-## snip ##
+pos[ 3] = 5.0
+pos[ 4] = 0.0
+pos[ 5] = 0.0
+
+pos[ 6] = 0.0
+pos[ 7] = 5.0
+pos[ 8] = 0.0
+
+pos[ 9] = 0.0
+pos[10] = 0.0
+pos[11] = 5.0
+
+pos[12] = 5.0
+pos[13] = 5.0
+pos[14] = 0.0
+
+pos[15] = 0.0
+pos[16] = 5.0
+pos[17] = 5.0
+
+pos[18] = 5.0
+pos[19] = 0.0
+pos[20] = 5.0
 
 pos[21] = 5.0
 pos[22] = 5.0
@@ -1282,7 +1949,15 @@ end
 Stokes::stokes_set_pos(sys, pos)
 Stokes::solve_res_3f(sys, u, f)
 
-nc_f = Stokes::stokes_nc_mob_f_init("test-stokes.res-3f.nc", np)
+nc_f = Stokes::stokes_nc_init("test-stokes.res-3f.nc",
+                              np,
+                              0, # nf
+                              0, # version
+                              0, # flag_poly
+                              0, # flag_Q
+                              0, # flag_it (time-dependent imposed flow)
+                              0, # shear_mode
+                              0) # flag_BD
 # f0, x, u are active
 Stokes::stokes_nc_set_f0(nc_f, f)
 Stokes::stokes_nc_set_time(nc_f, 0, 0.0)
@@ -1303,6 +1978,10 @@ end
 In {\bf Guile}\cite{guile},
 {\small
 \begin{verbatim}
+; test code for libstokes
+; Copyright (C) 2006-2008 Kengo Ichiki <kichiki@users.sourceforge.net>
+; $Id: manual.tex,v 1.5 2008/10/12 20:16:53 kichiki Exp $
+
 (load-extension "./stokes.so" "SWIG_init")
 
 ; diaplay darray in 3
@@ -1341,11 +2020,11 @@ In {\bf Guile}\cite{guile},
 (display xi)
 (newline)
 
-;(stokes-lubmin-set sys 2.0000000001)
-;(stokes-lubmin-get sys)
+;(stokes-lubmin2-set sys 4.0000000001)
+;(stokes-lubmin2-get sys)
 ; with '-emit-setter' on swig, you can write those as
-(set! (stokes-lubmin sys) 2.0000000001)
-;(stokes-lubmin sys)
+(set! (stokes-lubmin2 sys) 4.0000000001)
+;(stokes-lubmin2 sys)
 (set! (stokes-lubmax sys) 4.0)
 ;(stokes-lubmax sys)
 
@@ -1360,7 +2039,29 @@ In {\bf Guile}\cite{guile},
 (darray-setitem pos 1  0.0) ; y component
 (darray-setitem pos 2  0.0) ; z component
 
-;; snip ;;
+(darray-setitem pos 3  5.0)
+(darray-setitem pos 4  0.0)
+(darray-setitem pos 5  0.0)
+
+(darray-setitem pos 6  0.0)
+(darray-setitem pos 7  5.0)
+(darray-setitem pos 8  0.0)
+
+(darray-setitem pos 9  0.0)
+(darray-setitem pos 10 0.0)
+(darray-setitem pos 11 5.0)
+
+(darray-setitem pos 12 5.0)
+(darray-setitem pos 13 5.0)
+(darray-setitem pos 14 0.0)
+
+(darray-setitem pos 15 0.0)
+(darray-setitem pos 16 5.0)
+(darray-setitem pos 17 5.0)
+
+(darray-setitem pos 18 5.0)
+(darray-setitem pos 19 0.0)
+(darray-setitem pos 20 5.0)
 
 (darray-setitem pos 21 5.0)
 (darray-setitem pos 22 5.0)
@@ -1382,7 +2083,16 @@ In {\bf Guile}\cite{guile},
 (stokes-set-pos sys pos)
 (solve-res-3f sys u f)
 
-(define nc-f (stokes-nc-mob-f-init "test-stokes.res-3f.nc" np))
+(define nc-f (stokes-nc-init "test-stokes.res-3f.nc"
+			     np
+			     0 ; nf
+			     0 ; version
+			     0 ; flag_poly
+			     0 ; flag_Q
+			     0 ; flag_it (time-dependent imposed flow)
+			     0 ; shear_mode
+			     0 ; flag_BD
+			     ))
 ;; f0, x, u are active
 
 (stokes-nc-set-f0 nc-f f)
@@ -1405,6 +2115,10 @@ Currently only the function {\tt stokes\_res\_3f()} is exported.
 You can call it in {\bf Octave} script something like that;
 {\small
 \begin{verbatim}
+## sample code for stokes_res_ewald_3f()
+## Copyright (C) 2006-2007 Kengo Ichiki <kichiki@users.sourceforge.net>
+## $Id: manual.tex,v 1.5 2008/10/12 20:16:53 kichiki Exp $
+
 # lattice vector
 l = [10.0, 10.0, 10.0]
 
@@ -1606,7 +2320,7 @@ Each solver has the name in the form of
 \end{itemize}
 
 
-\section{Stokes Flows}
+\section{Hydrodynamic Interaction in Stokes Flows}
 In the following, physical background is explained.
 
 Fluid is described by Navier-Stokes equation
@@ -1742,7 +2456,7 @@ for incompressible fluid
 \end{equation}
 
 
-\section{Many Body Problem}
+\subsection{Many Body Problem}
 In a viscous fluid, objects are dragged by the surrounding fluid.
 (Imagine when you are in water pool or the sea.)
 
@@ -1933,7 +2647,7 @@ Is there any way of reduction
 preserving the symmetric nature?
 
 
-\section{FTS formulation}
+\subsection{FTS formulation}
 Equation (\ref{eq:mob-fts}) is the famous FTS formulation
 derived in the paper of Stokesian dynamics method\cite{DurlofskyEtal1987}.
 
@@ -2072,7 +2786,7 @@ but the higher order velocity moments should be vanished
 (that is, these are always given parameters).
 
 
-\section{Fixed Particles -- Mixed Problem}
+\subsection{Fixed Particles -- Mixed Problem}
 When we are interested in particle dynamics,
 the mobility problem is the main target.
 However, in several situations, we may want to introduce
@@ -2205,7 +2919,7 @@ is in this way.\footnote{
 
 
 
-\section{Lubrication Correction}
+\subsection{Lubrication Correction}
 One of the innovation done by Stokesian dynamics
 \cite{BradyBossis1988,DurlofskyEtal1987,BradyEtal1988}
 is the model of lubrication into the system.
@@ -2254,7 +2968,7 @@ we can always apply the generalized linear set of equation
 as in Eq. (\ref{eq:atimes-gen}) for any case.
 
 
-\section{Ewald Summation}
+\subsection{Ewald Summation}
 Because of the long-range nature of the Stokeslet $\bm{J}$,
 we cannot take a simple cut-off model under the periodic
 boundary condition. As in the electrostatic interactions
@@ -2266,6 +2980,28 @@ Hasimoto's formulation\cite{Hasimoto1959}
 and Beenakker's formulation\cite{Beenakker1986}.
 
 
+\subsection{Navier Slip Boundary Condition}
+
+
+\section{Brownian Dynamics}
+\label{sec:BrownianDynamics}
+
+\section{Chain Interaction among Particles}
+\label{sec:ChainInteraction}
+
+\subsection{Bead-Spring Models --- Overview}
+
+\subsection{Hookean Spring}
+
+\subsection{Finitely Extensible Nonlinear Spring Models}
+
+\subsection{Discrete Wormlike Chain Model}
+
+\subsection{Bead-Rod Model}
+
+
+\section{Confinements}
+\label{sec:Confinements}
 
 
 \chapter{{\tt libiter}: Library of Iterative Solvers}
