@@ -1,0 +1,7 @@
+*~
+*.aux
+*.log
+*.toc
+*.dvi
+*.pdf
+_region_.tex
